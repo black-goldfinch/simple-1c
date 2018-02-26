@@ -15,13 +15,13 @@ namespace Simple1C.Impl.Sql.Translation
 
         public override ISqlElement VisitBinary(BinaryExpression expression)
         {
-            if (expression.Operator == SqlBinaryOperator.Eq)
+            if (expression.Operator == SqlBinaryOperator.Eq || expression.Operator == SqlBinaryOperator.Neq)
             {
-                var left = GetUnionReference(expression.Left);
-                var right = GetUnionReference(expression.Right);
+                var left = GetReference(expression.Left);
+                var right = GetReference(expression.Right);
                 if (left == null || right == null)
                     return expression;
-                return new BinaryExpression(SqlBinaryOperator.And)
+                var result =  new BinaryExpression(SqlBinaryOperator.And)
                 {
                     Left = new EqualityExpression
                     {
@@ -34,6 +34,13 @@ namespace Simple1C.Impl.Sql.Translation
                         Right = right.Column
                     }
                 };
+                if (expression.Operator == SqlBinaryOperator.Neq)
+                    return new UnaryExpression()
+                    {
+                        Operator = UnaryOperator.Not,
+                        Argument = result
+                    };
+                return result;
             }
             expression.Left = Visit(expression.Left);
             expression.Right = Visit(expression.Right);
@@ -65,7 +72,7 @@ namespace Simple1C.Impl.Sql.Translation
             return null;
         }
 
-        private Reference GetUnionReference(ISqlElement expr)
+        private Reference GetReference(ISqlElement expr)
         {
             if (!(expr is ColumnReferenceExpression column))
                 return null;
@@ -80,7 +87,7 @@ namespace Simple1C.Impl.Sql.Translation
             {
                 mapping = tableMapping.Properties.Where(x => x.SingleLayout != null)
                     .SingleOrDefault(x => x.SingleLayout.DbColumnName == column.Name);
-                if (string.IsNullOrEmpty(mapping?.SingleLayout.NestedTableName))
+                if (mapping == null || string.IsNullOrEmpty(mapping.SingleLayout.NestedTableName))
                     return null;
             }
             return new Reference

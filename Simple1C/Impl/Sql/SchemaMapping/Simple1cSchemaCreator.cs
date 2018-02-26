@@ -102,7 +102,6 @@ BEGIN
 	return timestamp '1582-10-15 04:00:00' + seconds * interval '1 second' + interval '1 hour';
 END
 $$;";
-            Console.WriteLine(sql);
             database.ExecuteNonQuery(sql);
         }
 

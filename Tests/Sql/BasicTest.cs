@@ -446,6 +446,74 @@ inner join t3 as i on p.d1 = i.d1 and E'\\x000000D2' = p.f1_tableIndex and i.f3_
         }
 
         [Test]
+        public void InequalityForUnionReferenceColumns()
+        {
+            const string sourceSql = @"select p.Контрагент as Contractor
+    from Документ.СписаниеСРасчетногоСчета as p
+    JOIN Документ.ПоступлениеНаРасчетныйСчет as i ON p.Контрагент <> i.Контрагент";
+
+            const string mappings = @"Документ.СписаниеСРасчетногоСчета t1 Main
+    Контрагент UnionReferences  f1_tableIndex f1_ref Справочник.Контрагенты Справочник.ФизическиеЛица
+    ОбластьДанныхОсновныеДанные Single d1
+Документ.ПоступлениеНаРасчетныйСчет t3 Main
+    Контрагент UnionReferences  f3_tableIndex f3_ref Справочник.Контрагенты Справочник.ФизическиеЛица
+    ОбластьДанныхОсновныеДанные Single d1
+Справочник.Контрагенты t210 Main
+    ССылка Single f2
+    ОбластьДанныхОсновныеДанные Single d2
+Справочник.ФизическиеЛица t312 Main
+    ССылка Single f4
+    ОбластьДанныхОсновныеДанные Single d3";
+
+            const string expectedResult =
+                @"select
+    p.f1_ref as Contractor
+from t1 as p
+inner join t3 as i on p.d1 = i.d1 and  not (p.f1_tableIndex = i.f3_tableIndex and p.f1_ref = i.f3_ref)";
+
+            CheckTranslate(mappings, sourceSql, expectedResult);
+        }
+
+        [Test]
+        public void InequalityForUnionAndSingleReferenceColumns()
+        {
+            const string sourceSql = @"select p.Контрагент as Contractor
+    from Документ.СписаниеСРасчетногоСчета as p
+    JOIN Документ.ПоступлениеНаРасчетныйСчет as i ON p.Контрагент != i.Контрагент";
+
+            const string mappings = @"Документ.СписаниеСРасчетногоСчета t1 Main
+    Контрагент UnionReferences  f1_tableIndex f1_ref Справочник.Контрагенты Справочник.ФизическиеЛица
+    ОбластьДанныхОсновныеДанные Single d1
+Документ.ПоступлениеНаРасчетныйСчет t3 Main
+    Контрагент Single f3_ref Справочник.Контрагенты
+    ОбластьДанныхОсновныеДанные Single d1
+Справочник.Контрагенты t210 Main
+    ССылка Single f2
+    ОбластьДанныхОсновныеДанные Single d2
+Справочник.ФизическиеЛица t312 Main
+    ССылка Single f4
+    ОбластьДанныхОсновныеДанные Single d3";
+
+            const string expectedResult =
+                @"select
+    p.f1_ref as Contractor
+from t1 as p
+inner join t3 as i on p.d1 = i.d1 and  not (p.f1_tableIndex = E'\\x000000D2' and p.f1_ref = i.f3_ref)";
+
+            CheckTranslate(mappings, sourceSql, expectedResult);
+
+            const string sourceSql2 = @"select p.Контрагент as Contractor
+    from Документ.СписаниеСРасчетногоСчета as p
+    JOIN Документ.ПоступлениеНаРасчетныйСчет as i ON i.Контрагент <> p.Контрагент";
+            const string expectedResult2 =
+                @"select
+    p.f1_ref as Contractor
+from t1 as p
+inner join t3 as i on p.d1 = i.d1 and  not (E'\\x000000D2' = p.f1_tableIndex and i.f3_ref = p.f1_ref)";
+            CheckTranslate(mappings, sourceSql2, expectedResult2);
+        }
+
+        [Test]
         public void CorrectCrashForInvalidUseOfPresentationFunction()
         {
             const string sourceSql = @"select ПРЕДСТАВЛЕНИЕ(testRef.Договор) as TestContract

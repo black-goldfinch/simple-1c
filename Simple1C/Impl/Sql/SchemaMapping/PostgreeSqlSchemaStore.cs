@@ -129,37 +129,36 @@ namespace Simple1C.Impl.Sql.SchemaMapping
             return result;
         }
 
+        private const string SqlByDbName = "select queryTableName,dbName,type,properties " +
+                                   "from simple1c.tableMappings " +
+                                   "where lower(dbName) = lower(@p0)" +
+                                   "limit 1";
+
+        private const string SqlByQueryName = "select queryTableName,dbName,type,properties " +
+                                      "from simple1c.tableMappings " +
+                                      "where lower(queryTableName) = lower(@p0)" +
+                                      "limit 1";
+
         private TableMapping LoadMappingOrNull(string queryName)
         {
-            const string sql = "select queryTableName,dbName,type,properties " +
-                               "from simple1c.tableMappings " +
-                               "where lower(queryTableName) = lower(@p0)" +
-                               "limit 1";
-            return database.ExecuteEnumerable(
-                sql, new object[] {queryName.ToLower()},
-                r => new TableMapping(r.GetString(0),
-                    r.GetString(1),
-                    TableMapping.ParseTableType(r.GetString(2)),
-                    r.GetString(3)
-                        .Split(new[] {"\r\n"}, StringSplitOptions.RemoveEmptyEntries)
-                        .Select(PropertyMapping.Parse).ToArray()))
-                .SingleOrDefault();
+            return GetMappingByQuery(SqlByQueryName, queryName);
         }
 
         private TableMapping GetMappingByDbName(string dbName)
         {
-            const string sql = "select queryTableName,dbName,type,properties " +
-                               "from simple1c.tableMappings " +
-                               "where lower(dbName) = lower(@p0)" +
-                               "limit 1";
+            return GetMappingByQuery(SqlByDbName, dbName);
+        }
+
+        private TableMapping GetMappingByQuery(string sql, string name)
+        {
             return database.ExecuteEnumerable(
-                sql, new object[] {dbName.ToLower()},
-                r => new TableMapping(r.GetString(0),
-                    r.GetString(1),
-                    TableMapping.ParseTableType(r.GetString(2)),
-                    r.GetString(3)
-                        .Split(new[] {"\r\n"}, StringSplitOptions.RemoveEmptyEntries)
-                        .Select(PropertyMapping.Parse).ToArray()))
+                    sql, new object[] {name.ToLower()},
+                    r => new TableMapping(r.GetString(0),
+                        r.GetString(1),
+                        TableMapping.ParseTableType(r.GetString(2)),
+                        r.GetString(3)
+                            .Split(new[] {"\r\n"}, StringSplitOptions.RemoveEmptyEntries)
+                            .Select(PropertyMapping.Parse).ToArray()))
                 .SingleOrDefault();
         }
 
@@ -175,6 +174,7 @@ namespace Simple1C.Impl.Sql.SchemaMapping
                     throw new InvalidOperationException(string.Format(messageFormat,
                         tableDesc.columns.Length, columnValues.Length));
                 }
+
                 return columnValues;
             }));
             database.ExecuteNonQuery(tableDesc.createIndexesSql);

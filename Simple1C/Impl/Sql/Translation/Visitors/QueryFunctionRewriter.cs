@@ -163,13 +163,21 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                 }
 
                 var resolvedTableMapping = mappingSource.ResolveTableByDbNameOrNull(tableDeclarationClause.Name);
+                if (resolvedTableMapping == null)
+                {
+                    const string message = "can't find table [{0}]  in column reference [{0}.{1}] for function [{2}]";
+                    throw new InvalidOperationException(string.Format(message,
+                        columnReferenceExpression.Table.Alias, columnReferenceExpression.Name,
+                        expression.KnownFunction));
+                }
+
                 foreach (var mapping in resolvedTableMapping.Properties)
                 {
                     if (mapping.SingleLayout != null)
                     {
                         if (mapping.SingleLayout.DbColumnName == columnReferenceExpression.Name)
                         {
-                            if (mapping.SingleLayout.NestedTableName == null)
+                            if (string.IsNullOrEmpty(mapping.SingleLayout.NestedTableName))
                             {
                                 const string msgFormat =
                                     "[{0}] function not supported for non-reference columns, [{1}.{2}]";
@@ -178,6 +186,15 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                             }
 
                             var byDbName = mappingSource.ResolveTableOrNull(mapping.SingleLayout.NestedTableName);
+                            if (byDbName == null || !byDbName.Index.HasValue)
+                            {
+                                const string message = "can't find mapping for [{0}] following column reference " +
+                                                       "[{1}.{2}] for function [{3}]";
+                                throw new InvalidOperationException(string.Format(message,
+                                    mapping.SingleLayout.NestedTableName, columnReferenceExpression.Table.Alias,
+                                    columnReferenceExpression.Name, expression.KnownFunction));
+                            }
+
                             return new LiteralExpression()
                             {
                                 SqlType = SqlType.ByteArray,
@@ -186,21 +203,19 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                         }
                     }
                     else if (mapping.UnionLayout != null)
-                    {
                         if (mapping.UnionLayout.ReferenceColumnName == columnReferenceExpression.Name)
-                        {
                             return new ColumnReferenceExpression()
                             {
                                 Name = mapping.UnionLayout.TableIndexColumnName,
                                 Table = columnReferenceExpression.Table
                             };
-                        }
-                    }
                 }
+
                 const string msg = "could not find columns [{1}.{2}] for function [{0}]";
                 throw new InvalidOperationException(string.Format(msg, expression.KnownFunction,
                     columnReferenceExpression.Table.Alias, columnReferenceExpression.Name));
             }
+
             return expression;
         }
 
