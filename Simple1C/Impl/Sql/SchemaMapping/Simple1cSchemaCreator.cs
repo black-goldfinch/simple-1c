@@ -50,13 +50,26 @@ namespace Simple1C.Impl.Sql.SchemaMapping
             LogHelpers.LogWithTiming("writing enum mappings to db",
                 () => store.WriteEnumMappings(enumMappings));
 
-            LogHelpers.LogWithTiming("creating helper functions", CreateHelperFunctions);
+            LogHelpers.LogWithTiming("creating helper functions", () => CreateHelperFunctions(tableMappings));
         }
 
-        private void CreateHelperFunctions()
+        private void CreateHelperFunctions(TableMapping[] tableMappings)
         {
-            const string sql =
-                @"CREATE FUNCTION simple1c.to_guid(bytea) RETURNS varchar(36) LANGUAGE plpgsql IMMUTABLE LEAKPROOF STRICT AS $$
+            var body = tableMappings
+                .Where(x => x.Index.HasValue)
+                .Where(x => x.ObjectName != null)
+                .Select(x => $@"WHEN E'\\x{x.Index:X8}' THEN '{x.ObjectName.Value.Fullname}'")
+                .JoinStrings("\n");
+
+            string sql =
+                $@"
+CREATE FUNCTION simple1c.to_type_name(bytea) RETURNS varchar(36) LANGUAGE plpgsql IMMUTABLE LEAKPROOF STRICT AS $$
+BEGIN
+    return CASE $1 {body} ELSE '' END;
+END
+$$;
+
+CREATE FUNCTION simple1c.to_guid(bytea) RETURNS varchar(36) LANGUAGE plpgsql IMMUTABLE LEAKPROOF STRICT AS $$
 DECLARE
 	guid_text varchar(50);
 BEGIN
@@ -89,6 +102,7 @@ BEGIN
 	return timestamp '1582-10-15 04:00:00' + seconds * interval '1 second' + interval '1 hour';
 END
 $$;";
+            Console.WriteLine(sql);
             database.ExecuteNonQuery(sql);
         }
 

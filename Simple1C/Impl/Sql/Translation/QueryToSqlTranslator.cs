@@ -57,6 +57,7 @@ namespace Simple1C.Impl.Sql.Translation
                     else
                         continue;
                 }
+
                 const int lengthThreshold = postgreSqlMaxAliasLength - 2;
                 if (f.Alias.Length > lengthThreshold)
                     f.Alias = f.Alias.Substring(f.Alias.Length - lengthThreshold, lengthThreshold);
@@ -69,6 +70,7 @@ namespace Simple1C.Impl.Sql.Translation
                         const string messageFormat = "too many fields with same prefix [{0}]";
                         throw new InvalidOperationException(string.Format(messageFormat, s));
                     }
+
                     f.Alias = s + '_' + ++index;
                 }
             }
@@ -128,8 +130,10 @@ namespace Simple1C.Impl.Sql.Translation
                     .Visit(sqlQuery);
                 new TableDeclarationRewriter(queryEntityTree, enumSqlBuilder, nameGenerator, areas)
                     .RewriteTables(sqlQuery);
+                new UnionReferencesRewriter(mappingSource)
+                    .Visit(sqlQuery);
                 new ValueLiteralRewriter(enumSqlBuilder).Visit(sqlQuery);
-                new QueryFunctionRewriter().Visit(sqlQuery);
+                new QueryFunctionRewriter(mappingSource).Visit(sqlQuery);
             }
         }
     }

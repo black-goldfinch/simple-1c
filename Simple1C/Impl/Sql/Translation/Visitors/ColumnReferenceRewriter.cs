@@ -32,8 +32,7 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
             rewritten.Add(expression);
             if (!currentPart.HasValue)
                 throw new InvalidOperationException("assertion failure");
-            var queryField = GetOrCreateQueryField(expression,
-                isPresentation, currentPart.Value);
+            var queryField = GetOrCreateQueryField(expression, isPresentation, currentPart.Value);
             expression.Name = queryField.alias ?? queryField.properties[0].GetDbColumnName();
             return expression;
         }

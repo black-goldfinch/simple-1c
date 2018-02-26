@@ -1,12 +1,20 @@
 using System;
 using System.Collections.Generic;
 using Simple1C.Impl.Helpers;
+using Simple1C.Impl.Sql.SchemaMapping;
 using Simple1C.Impl.Sql.SqlAccess.Syntax;
 
 namespace Simple1C.Impl.Sql.Translation.Visitors
 {
     internal class QueryFunctionRewriter : SqlVisitor
     {
+        private readonly IMappingSource mappingSource;
+
+        public QueryFunctionRewriter(IMappingSource mappingSource)
+        {
+            this.mappingSource = mappingSource;
+        }
+
         public override ISqlElement VisitQueryFunction(QueryFunctionExpression expression)
         {
             expression = (QueryFunctionExpression) base.VisitQueryFunction(expression);
@@ -24,8 +32,10 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                         throw new InvalidOperationException(string.Format(messageFormat,
                             expression.Arguments.JoinStrings(",")));
                     }
+
                     dateTimeComponents[i] = (int) literal.Value;
                 }
+
                 if (expression.Arguments.Count == 3)
                     return new CastExpression
                     {
@@ -33,8 +43,8 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                         Expression = new LiteralExpression
                         {
                             Value = new DateTime(dateTimeComponents[0],
-                                dateTimeComponents[1],
-                                dateTimeComponents[2])
+                                    dateTimeComponents[1],
+                                    dateTimeComponents[2])
                                 .ToString("yyyy-MM-dd")
                         }
                     };
@@ -44,15 +54,16 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                     Expression = new LiteralExpression
                     {
                         Value = new DateTime(dateTimeComponents[0],
-                            dateTimeComponents[1],
-                            dateTimeComponents[2],
-                            dateTimeComponents[3],
-                            dateTimeComponents[4],
-                            dateTimeComponents[5])
+                                dateTimeComponents[1],
+                                dateTimeComponents[2],
+                                dateTimeComponents[3],
+                                dateTimeComponents[4],
+                                dateTimeComponents[5])
                             .ToString("yyyy-MM-dd HH:mm:ss")
                     }
                 };
             }
+
             if (expression.KnownFunction == KnownQueryFunction.Year)
             {
                 ExpectArgumentCount(expression, 1);
@@ -66,6 +77,7 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                     }
                 };
             }
+
             if (expression.KnownFunction == KnownQueryFunction.Quarter)
             {
                 ExpectArgumentCount(expression, 1);
@@ -79,11 +91,13 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                     }
                 };
             }
+
             if (expression.KnownFunction == KnownQueryFunction.Presentation)
             {
                 ExpectArgumentCount(expression, 1);
                 return expression.Arguments[0];
             }
+
             if (expression.KnownFunction == KnownQueryFunction.IsNull)
             {
                 ExpectArgumentCount(expression, 2);
@@ -100,6 +114,7 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                     DefaultValue = expression.Arguments[0]
                 };
             }
+
             if (expression.KnownFunction == KnownQueryFunction.Substring)
             {
                 ExpectArgumentCount(expression, 3);
@@ -118,6 +133,7 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                     }
                 };
             }
+
             if (expression.KnownFunction == KnownQueryFunction.SqlDateTrunc)
             {
                 ExpectArgumentCount(expression, 2);
@@ -126,6 +142,64 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                     KnownFunction = KnownQueryFunction.SqlDateTrunc,
                     Arguments = {expression.Arguments[1], expression.Arguments[0]}
                 };
+            }
+
+            if (expression.KnownFunction == KnownQueryFunction.TypeIdentifier)
+            {
+                ExpectArgumentCount(expression, 1);
+                var columnReferenceExpression = expression.Arguments[0] as ColumnReferenceExpression;
+                if (columnReferenceExpression == null)
+                {
+                    const string messageFormat = "[{0}] function expected to have column reference as an argument";
+                    throw new InvalidOperationException(string.Format(messageFormat, expression.KnownFunction));
+                }
+
+                var tableDeclarationClause = columnReferenceExpression.Table as TableDeclarationClause;
+                if (tableDeclarationClause == null)
+                {
+                    const string message = "[{0}] function not supported for subquery column reference, [{1}.{2}]";
+                    throw new InvalidOperationException(string.Format(message, expression.KnownFunction,
+                        columnReferenceExpression.Table.Alias, columnReferenceExpression.Name));
+                }
+
+                var resolvedTableMapping = mappingSource.ResolveTableByDbNameOrNull(tableDeclarationClause.Name);
+                foreach (var mapping in resolvedTableMapping.Properties)
+                {
+                    if (mapping.SingleLayout != null)
+                    {
+                        if (mapping.SingleLayout.DbColumnName == columnReferenceExpression.Name)
+                        {
+                            if (mapping.SingleLayout.NestedTableName == null)
+                            {
+                                const string msgFormat =
+                                    "[{0}] function not supported for non-reference columns, [{1}.{2}]";
+                                throw new InvalidOperationException(string.Format(msgFormat, expression.KnownFunction,
+                                    columnReferenceExpression.Table.Alias, columnReferenceExpression.Name));
+                            }
+
+                            var byDbName = mappingSource.ResolveTableOrNull(mapping.SingleLayout.NestedTableName);
+                            return new LiteralExpression()
+                            {
+                                SqlType = SqlType.ByteArray,
+                                Value = byDbName.Index.Value
+                            };
+                        }
+                    }
+                    else if (mapping.UnionLayout != null)
+                    {
+                        if (mapping.UnionLayout.ReferenceColumnName == columnReferenceExpression.Name)
+                        {
+                            return new ColumnReferenceExpression()
+                            {
+                                Name = mapping.UnionLayout.TableIndexColumnName,
+                                Table = columnReferenceExpression.Table
+                            };
+                        }
+                    }
+                }
+                const string msg = "could not find columns [{1}.{2}] for function [{0}]";
+                throw new InvalidOperationException(string.Format(msg, expression.KnownFunction,
+                    columnReferenceExpression.Table.Alias, columnReferenceExpression.Name));
             }
             return expression;
         }

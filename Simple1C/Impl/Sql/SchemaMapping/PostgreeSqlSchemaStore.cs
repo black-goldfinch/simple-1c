@@ -11,7 +11,10 @@ namespace Simple1C.Impl.Sql.SchemaMapping
     {
         private readonly PostgreeSqlDatabase database;
 
-        private readonly Dictionary<string, TableMapping> cache =
+        private readonly Dictionary<string, TableMapping> byQueryNameCache =
+            new Dictionary<string, TableMapping>(StringComparer.OrdinalIgnoreCase);
+
+        private readonly Dictionary<string, TableMapping> byDbNameCache =
             new Dictionary<string, TableMapping>(StringComparer.OrdinalIgnoreCase);
 
         private static readonly TableDesc typeMappingsTableDesc =
@@ -113,8 +116,16 @@ namespace Simple1C.Impl.Sql.SchemaMapping
         public TableMapping ResolveTableOrNull(string queryName)
         {
             TableMapping result;
-            if (!cache.TryGetValue(queryName, out result))
-                cache.Add(queryName, result = LoadMappingOrNull(queryName));
+            if (!byQueryNameCache.TryGetValue(queryName, out result))
+                byQueryNameCache.Add(queryName, result = LoadMappingOrNull(queryName));
+            return result;
+        }
+
+        public TableMapping ResolveTableByDbNameOrNull(string dbName)
+        {
+            TableMapping result;
+            if (!byDbNameCache.TryGetValue(dbName, out result))
+                byDbNameCache.Add(dbName, result = GetMappingByDbName(dbName));
             return result;
         }
 
@@ -126,6 +137,23 @@ namespace Simple1C.Impl.Sql.SchemaMapping
                                "limit 1";
             return database.ExecuteEnumerable(
                 sql, new object[] {queryName.ToLower()},
+                r => new TableMapping(r.GetString(0),
+                    r.GetString(1),
+                    TableMapping.ParseTableType(r.GetString(2)),
+                    r.GetString(3)
+                        .Split(new[] {"\r\n"}, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(PropertyMapping.Parse).ToArray()))
+                .SingleOrDefault();
+        }
+
+        private TableMapping GetMappingByDbName(string dbName)
+        {
+            const string sql = "select queryTableName,dbName,type,properties " +
+                               "from simple1c.tableMappings " +
+                               "where lower(dbName) = lower(@p0)" +
+                               "limit 1";
+            return database.ExecuteEnumerable(
+                sql, new object[] {dbName.ToLower()},
                 r => new TableMapping(r.GetString(0),
                     r.GetString(1),
                     TableMapping.ParseTableType(r.GetString(2)),

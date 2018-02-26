@@ -3,5 +3,6 @@
     internal interface IMappingSource
     {
         TableMapping ResolveTableOrNull(string queryName);
+        TableMapping ResolveTableByDbNameOrNull(string dbName);
     }
 }

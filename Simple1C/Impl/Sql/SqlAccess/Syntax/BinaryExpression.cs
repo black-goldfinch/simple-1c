@@ -1,3 +1,4 @@
+using Simple1C.Impl.Sql.SchemaMapping;
 using Simple1C.Impl.Sql.Translation;
 
 namespace Simple1C.Impl.Sql.SqlAccess.Syntax

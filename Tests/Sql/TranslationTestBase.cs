@@ -68,7 +68,16 @@ namespace Simple1C.Tests.Sql
 
             public TableMapping ResolveTableOrNull(string queryName)
             {
+                if (queryName == null)
+                    return null;
                 return mappings.GetOrDefault(queryName);
+            }
+
+            public TableMapping ResolveTableByDbNameOrNull(string dbName)
+            {
+                if (dbName == null)
+                    return null;
+                return mappings.Values.SingleOrDefault(x => x.DbTableName == dbName);
             }
         }
     }

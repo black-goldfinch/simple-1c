@@ -712,6 +712,9 @@ namespace Simple1C.Impl.Sql.SqlAccess.Parsing
                 case "beginofperiod":
                 case "началопериода":
                     return KnownQueryFunction.SqlDateTrunc;
+                case "идентификатортипа":
+                case "typeidentifier":
+                    return KnownQueryFunction.TypeIdentifier;
                 default:
                     return null;
             }
