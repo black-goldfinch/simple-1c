@@ -157,9 +157,9 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                 var tableDeclarationClause = columnReferenceExpression.Table as TableDeclarationClause;
                 if (tableDeclarationClause == null)
                 {
-                    const string message = "[{0}] function not supported for subquery column reference, [{1}.{2}]";
+                    const string message = "[{0}] function not supported for subquery column reference, [{1}.{2}]. Table is of type [{3}]";
                     throw new InvalidOperationException(string.Format(message, expression.KnownFunction,
-                        columnReferenceExpression.Table.Alias, columnReferenceExpression.Name));
+                        columnReferenceExpression.Table.Alias, columnReferenceExpression.Name, columnReferenceExpression.Table.GetType().Name));
                 }
 
                 var resolvedTableMapping = mappingSource.ResolveTableByDbNameOrNull(tableDeclarationClause.Name);

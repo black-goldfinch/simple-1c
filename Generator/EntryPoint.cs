@@ -36,6 +36,8 @@ namespace Generator
                     return GenCsMeta(parameters);
                 if (cmd == "gen-sql-meta")
                     return GenSqlMeta(parameters);
+                if (cmd == "recreate-routines")
+                    return RecreateRoutines(parameters);
                 if (cmd == "run-sql")
                     return RunSql(parameters);
                 if (cmd == "translate-sql")
@@ -233,6 +235,31 @@ namespace Generator
             var postgreeSqlSchemaStore = new PostgreeSqlSchemaStore(postgreeSqlDatabase);
             var schemaCreator = new Simple1CSchemaCreator(postgreeSqlSchemaStore, postgreeSqlDatabase, globalContext);
             schemaCreator.Recreate();
+            return 0;
+        }
+
+        private static int RecreateRoutines(NameValueCollection parameters)
+        {
+            var connectionString = parameters["connection-string"];
+            var dbConnectionString = parameters["db-connection-string"];
+            var parametersAreValid =
+                !string.IsNullOrEmpty(connectionString) &&
+                !string.IsNullOrEmpty(dbConnectionString);
+            if (!parametersAreValid)
+            {
+                Console.Out.WriteLine("Invalid arguments");
+                Console.Out.WriteLine(
+                    "Usage: Generator.exe -cmd recreate-routines -connection-string <string> -db-connection-string <connection string for PostgreeSql db>");
+                return -1;
+            }
+            GlobalContext globalContext = null;
+            LogHelpers.LogWithTiming(string.Format("connecting to [{0}]", connectionString),
+                () => globalContext = new GlobalContext(new GlobalContextFactory().Create(connectionString)));
+
+            var postgreeSqlDatabase = new PostgreeSqlDatabase(dbConnectionString);
+            var postgreeSqlSchemaStore = new PostgreeSqlSchemaStore(postgreeSqlDatabase);
+            var schemaCreator = new Simple1CSchemaCreator(postgreeSqlSchemaStore, postgreeSqlDatabase, globalContext);
+            schemaCreator.RecreateRoutines();
             return 0;
         }
 

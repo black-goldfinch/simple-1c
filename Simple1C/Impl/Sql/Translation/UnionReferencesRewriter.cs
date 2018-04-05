@@ -74,9 +74,11 @@ namespace Simple1C.Impl.Sql.Translation
 
         private Reference GetReference(ISqlElement expr)
         {
-            if (!(expr is ColumnReferenceExpression column))
+            var column = expr as ColumnReferenceExpression;
+            if (column == null)
                 return null;
-            if (!(column.Table is TableDeclarationClause table))
+            var table = column.Table as TableDeclarationClause;
+            if (table == null)
                 return null;
             var tableMapping = mappingSource.ResolveTableByDbNameOrNull(table.Name);
             if (tableMapping == null)
