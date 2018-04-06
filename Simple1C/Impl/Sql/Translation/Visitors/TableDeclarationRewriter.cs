@@ -10,15 +10,13 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
         private readonly NameGenerator nameGenerator;
         private readonly QueryEntityTree queryEntityTree;
         private readonly EnumSqlBuilder enumSqlBuilder;
-        private readonly List<ISqlElement> areas;
 
         public TableDeclarationRewriter(QueryEntityTree queryEntityTree,
             EnumSqlBuilder enumSqlBuilder,
-            NameGenerator nameGenerator, List<ISqlElement> areas)
+            NameGenerator nameGenerator)
         {
             this.queryEntityTree = queryEntityTree;
             this.enumSqlBuilder = enumSqlBuilder;
-            this.areas = areas;
             this.nameGenerator = nameGenerator;
         }
 
@@ -45,7 +43,6 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
         {
             var queryRoot = queryEntityTree.Get(declaration);
             var subqueryRequired = queryRoot.subqueryRequired ||
-                                   areas != null ||
                                    queryRoot.additionalFields != null;
             if (!subqueryRequired)
             {
@@ -57,16 +54,6 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
             {
                 Source = queryEntityTree.GetTableDeclaration(queryRoot.entity)
             };
-            if (areas != null)
-                selectClause.WhereExpression = new InExpression
-                {
-                    Column = new ColumnReferenceExpression
-                    {
-                        Name = queryRoot.entity.GetAreaColumnName(),
-                        Table = (TableDeclarationClause) selectClause.Source
-                    },
-                    Source = new ListExpression {Elements = areas}
-                };
             if (stripResult == StripResult.HasNoReferences)
                 selectClause.IsSelectAll = true;
             else

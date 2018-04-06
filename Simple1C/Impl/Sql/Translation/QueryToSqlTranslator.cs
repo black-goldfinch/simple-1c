@@ -15,7 +15,7 @@ namespace Simple1C.Impl.Sql.Translation
         private readonly QueryParser queryParser;
         private readonly IMappingSource mappingSource;
         private readonly List<ISqlElement> areas;
-        private const int postgreSqlMaxAliasLength = 31;
+        private const int PostgreSqlMaxAliasLength = 31;
 
         public QueryToSqlTranslator(IMappingSource mappingSource, int[] areas)
         {
@@ -38,6 +38,7 @@ namespace Simple1C.Impl.Sql.Translation
                 SetDefaultAliases(unionClause.SelectClause);
             var translationContext = new TranslationContext(mappingSource, areas, sqlQuery);
             translationContext.Execute();
+
             return SqlFormatter.Format(sqlQuery);
         }
 
@@ -57,7 +58,7 @@ namespace Simple1C.Impl.Sql.Translation
                         continue;
                 }
 
-                const int lengthThreshold = postgreSqlMaxAliasLength - 2;
+                const int lengthThreshold = PostgreSqlMaxAliasLength - 2;
                 if (f.Alias.Length > lengthThreshold)
                     f.Alias = f.Alias.Substring(f.Alias.Length - lengthThreshold, lengthThreshold);
                 var s = f.Alias;
@@ -127,13 +128,57 @@ namespace Simple1C.Impl.Sql.Translation
                     .Visit(sqlQuery);
                 new ColumnReferenceRewriter(queryEntityTree, rewrittenColumns, nameGenerator)
                     .Visit(sqlQuery);
-                new TableDeclarationRewriter(queryEntityTree, enumSqlBuilder, nameGenerator, areas)
+                new TableDeclarationRewriter(queryEntityTree, enumSqlBuilder, nameGenerator)
                     .RewriteTables(sqlQuery);
                 new UnionReferencesRewriter(mappingSource)
                     .Visit(sqlQuery);
                 new ValueLiteralRewriter(enumSqlBuilder).Visit(sqlQuery);
                 new QueryFunctionRewriter(mappingSource).Visit(sqlQuery);
+                if (areas != null)
+                    new AddAreaToWhereClauseVisitor(mappingSource, areas).Visit(sqlQuery);
             }
+        }
+    }
+
+    internal class AddAreaToWhereClauseVisitor : SqlVisitor
+    {
+        private readonly List<ISqlElement> areas;
+        private readonly IMappingSource mappingSource;
+
+        public AddAreaToWhereClauseVisitor( IMappingSource mappingSource, List<ISqlElement> areas)
+        {
+            this.areas = areas;
+            this.mappingSource = mappingSource;
+        }
+
+        public override SelectClause VisitSelect(SelectClause clause)
+        {
+            var tableClause = clause.Source as TableDeclarationClause;
+            if (tableClause == null)
+                return base.VisitSelect(clause);
+            var tableMapping = mappingSource.ResolveTableByDbNameOrNull(tableClause.Name);
+            var areaExpression = new InExpression
+            {
+                Column = new ColumnReferenceExpression
+                {
+                    Name = tableMapping.GetByPropertyName("ОбластьДанныхОсновныеДанные").SingleLayout.DbColumnName,
+                    Table = clause.Source
+                },
+                Source = new ListExpression
+                {
+                    Elements = areas
+                }
+            };
+            if (clause.WhereExpression != null)
+                clause.WhereExpression = new AndExpression
+                {
+                    Left = clause.WhereExpression,
+                    Right = areaExpression
+                };
+            else
+                clause.WhereExpression = areaExpression;
+
+            return clause;
         }
     }
 }

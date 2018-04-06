@@ -28,10 +28,8 @@ from t1";
     ОбластьДанныхОсновныеДанные Single c2";
             const string expectedResult = @"select
     contractors.c1 as CounterpartyInn
-from (select
-    __nested_table0.c1
-from t1 as __nested_table0
-where __nested_table0.c2 in (10, 200)) as contractors";
+from t1 as contractors
+where contractors.c2 in (10, 200)";
             CheckTranslate(mappings, sourceSql, expectedResult, 10, 200);
         }
 
@@ -65,23 +63,6 @@ where contracts.c1 <= cast('2016-08-09' as date) and contracts.c2 >= cast('2016-
 from t1 as contracts
 where contracts.c1 <= @Param1";
             CheckTranslate(mappings, sourceSql, expectedResult);
-        }
-
-        [Test]
-        public void ReplaceTableWithoutAliasWithSubquery_GenerateAliasForSubquery()
-        {
-            const string sourceSql = @"select ИНН as CounterpartyInn
-    from Справочник.Контрагенты";
-            const string mappings = @"Справочник.Контрагенты t1 Main
-    ИНН Single c1
-    ОбластьДанныхОсновныеДанные Single c2";
-            const string expectedResult = @"select
-    __subquery0.c1 as CounterpartyInn
-from (select
-    __nested_table0.c1
-from t1 as __nested_table0
-where __nested_table0.c2 in (10, 200)) as __subquery0";
-            CheckTranslate(mappings, sourceSql, expectedResult, 10, 200);
         }
 
         [Test]
@@ -347,8 +328,9 @@ from t1 as payments";
 Справочник.Валюты t2 Main
     ОбластьДанныхОсновныеДанные Single d1";
             var exception = Assert.Throws<InvalidOperationException>(() => CheckTranslate(mappings, sourceSql, ""));
-            Assert.That(exception.Message, Is.EqualTo("[TypeIdentifier] function not supported for subquery column" +
-                                                      " reference, [contracts.c1]"));
+            Assert.That(exception.Message, Is.EqualTo(
+                "[TypeIdentifier] function not supported for subquery column" +
+                " reference, [contracts.c1]. Table is of type [SubqueryTable]"));
         }
 
         [Test]
@@ -637,12 +619,10 @@ from t1";
     Ссылка Single c1
     ОбластьДанныхОсновныеДанные Single c2";
             const string expectedResult = @"select
-    __subquery0.c1 as Ссылка,
-    __subquery0.c1 as ссылка
-from (select
-    __nested_table0.c1
-from t1 as __nested_table0
-where __nested_table0.c2 in (10, 20)) as __subquery0";
+    c1 as Ссылка,
+    c1 as ссылка
+from t1
+where c2 in (10, 20)";
             CheckTranslate(mappings, sourceSql, expectedResult, 10, 20);
         }
 
