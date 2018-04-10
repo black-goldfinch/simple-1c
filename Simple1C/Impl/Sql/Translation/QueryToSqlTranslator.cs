@@ -157,11 +157,14 @@ namespace Simple1C.Impl.Sql.Translation
             if (tableClause == null)
                 return base.VisitSelect(clause);
             var tableMapping = mappingSource.ResolveTableByDbNameOrNull(tableClause.Name);
+            var property = tableMapping.GetByPropertyName("ОбластьДанныхОсновныеДанные");
+            if (property == null)
+                return base.VisitSelect(clause);
             var areaExpression = new InExpression
             {
                 Column = new ColumnReferenceExpression
                 {
-                    Name = tableMapping.GetByPropertyName("ОбластьДанныхОсновныеДанные").SingleLayout.DbColumnName,
+                    Name = property.SingleLayout.DbColumnName,
                     Table = clause.Source
                 },
                 Source = new ListExpression
