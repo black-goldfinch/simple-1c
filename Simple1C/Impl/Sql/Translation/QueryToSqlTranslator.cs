@@ -157,8 +157,8 @@ namespace Simple1C.Impl.Sql.Translation
             if (tableClause == null)
                 return base.VisitSelect(clause);
             var tableMapping = mappingSource.ResolveTableByDbNameOrNull(tableClause.Name);
-            var property = tableMapping.GetByPropertyName("ОбластьДанныхОсновныеДанные");
-            if (property == null)
+            PropertyMapping property;
+            if (!tableMapping.TryGetProperty("ОбластьДанныхОсновныеДанные",out property))
                 return base.VisitSelect(clause);
             var areaExpression = new InExpression
             {

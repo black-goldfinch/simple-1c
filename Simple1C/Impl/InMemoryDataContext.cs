@@ -67,6 +67,7 @@ namespace Simple1C.Impl
         {
             if (entity == null)
                 return null;
+
             var changed = entity.Controller.Changed;
             if (changed != null)
             {
@@ -97,6 +98,11 @@ namespace Simple1C.Impl
                 inMemoryEntity = inmemoryEntityRevision.inMemoryEntity;
                 if (changed != null)
                 {
+                    var configurationName = ConfigurationName.Get(entity.GetType());
+                    if (configurationName.Scope == ConfigurationScope.Документы)
+                    {
+                        AssignNewGuid(entity, changed, "ВерсияДанных");
+                    }
                     inMemoryEntity.revision = new InMemoryEntityRevision(inMemoryEntity, inmemoryEntityRevision, changed);
                     Collection(entity.GetType()).revision++;    
                 }
@@ -113,9 +119,15 @@ namespace Simple1C.Impl
                 {
                     var configurationName = ConfigurationName.Get(entity.GetType());
                     if (configurationName.Scope == ConfigurationScope.Справочники)
+                    {
                         AssignNewGuid(entity, changed, "Код");
+                        AssignNewGuid(entity, changed, "ВерсияДанных");
+                    }
                     else if (configurationName.Scope == ConfigurationScope.Документы)
+                    {
                         AssignNewGuid(entity, changed, "Номер");
+                        AssignNewGuid(entity, changed, "ВерсияДанных");
+                    }
                     if (entity.Controller.IsNew && configurationName.HasReference)
                     {
                         var idProperty = entity.GetType().GetProperty(EntityHelpers.idPropertyName);

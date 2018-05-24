@@ -176,6 +176,32 @@ from t1";
         }
 
         [Test]
+        public void AreaOnSeveralLeftJoin()
+        {
+            const string sourceSql =
+                @"select contractors2.НаименованиеПолное as ContractorFullname
+FROM справочник.Контрагенты as contractors1
+LEFT JOIN справочник.Контрагенты as contractors ON contractors1.Ссылка = contractors.Ссылка
+LEFT JOIN справочник.Контрагенты as contractors2 ON contractors1.Ссылка = contractors2.Ссылка";
+
+            const string mappings = @"Справочник.Контрагенты t1 Main
+    Ссылка Single id
+    наименованиеполное Single f1
+    ОбластьДанныхОсновныеДанные Single area
+";
+
+            const string expectedResult =
+                @"select
+    contractors2.f1 as ContractorFullname
+from t1 as contractors1
+left join t1 as contractors on contractors1.area = contractors.area and contractors1.id = contractors.id
+left join t1 as contractors2 on contractors1.area = contractors2.area and contractors1.id = contractors2.id
+ ";
+
+            CheckTranslate(mappings, sourceSql, expectedResult);
+        }
+
+        [Test]
         public void CanUseRussianSyntax()
         {
             const string sourceSql = @"выбрать contractors.ИНН, КОЛИЧЕСТВО(contracts.Владелец) как ContractCount

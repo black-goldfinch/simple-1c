@@ -36,14 +36,10 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
 
         public override ISqlElement VisitTableDeclaration(TableDeclarationClause clause)
         {
-            contexts.Peek().MainTable = clause;
+            var context = contexts.Peek();
+            if (context.MainTable == null)
+                context.MainTable = clause;
             return base.VisitTableDeclaration(clause);
-        }
-
-        public override SubqueryTable VisitSubqueryTable(SubqueryTable subqueryTable)
-        {
-            contexts.Peek().MainTable = null;
-            return base.VisitSubqueryTable(subqueryTable);
         }
 
         public override SqlQuery VisitSqlQuery(SqlQuery sqlQuery)

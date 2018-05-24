@@ -157,66 +157,95 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                 var tableDeclarationClause = columnReferenceExpression.Table as TableDeclarationClause;
                 if (tableDeclarationClause == null)
                 {
-                    const string message = "[{0}] function not supported for subquery column reference, [{1}.{2}]. Table is of type [{3}]";
-                    throw new InvalidOperationException(string.Format(message, expression.KnownFunction,
-                        columnReferenceExpression.Table.Alias, columnReferenceExpression.Name, columnReferenceExpression.Table.GetType().Name));
-                }
-
-                var resolvedTableMapping = mappingSource.ResolveTableByDbNameOrNull(tableDeclarationClause.Name);
-                if (resolvedTableMapping == null)
-                {
-                    const string message = "can't find table [{0}]  in column reference [{0}.{1}] for function [{2}]";
-                    throw new InvalidOperationException(string.Format(message,
-                        columnReferenceExpression.Table.Alias, columnReferenceExpression.Name,
-                        expression.KnownFunction));
-                }
-
-                foreach (var mapping in resolvedTableMapping.Properties)
-                {
-                    if (mapping.SingleLayout != null)
+                    var subqueryDeclaration = columnReferenceExpression.Table as SubqueryTable;
+                    if (subqueryDeclaration == null)
                     {
-                        if (mapping.SingleLayout.DbColumnName == columnReferenceExpression.Name)
-                        {
-                            if (string.IsNullOrEmpty(mapping.SingleLayout.NestedTableName))
-                            {
-                                const string msgFormat =
-                                    "[{0}] function not supported for non-reference columns, [{1}.{2}]";
-                                throw new InvalidOperationException(string.Format(msgFormat, expression.KnownFunction,
-                                    columnReferenceExpression.Table.Alias, columnReferenceExpression.Name));
-                            }
-
-                            var byDbName = mappingSource.ResolveTableOrNull(mapping.SingleLayout.NestedTableName);
-                            if (byDbName == null || !byDbName.Index.HasValue)
-                            {
-                                const string message = "can't find mapping for [{0}] following column reference " +
-                                                       "[{1}.{2}] for function [{3}]";
-                                throw new InvalidOperationException(string.Format(message,
-                                    mapping.SingleLayout.NestedTableName, columnReferenceExpression.Table.Alias,
-                                    columnReferenceExpression.Name, expression.KnownFunction));
-                            }
-
-                            return new LiteralExpression()
-                            {
-                                SqlType = SqlType.ByteArray,
-                                Value = byDbName.Index.Value
-                            };
-                        }
+                        const string message =
+                            "[{0}] function not supported for a {1} " +
+                            "column reference, [{2}.{3}]. Table is of type [{4}]";
+                        throw new InvalidOperationException(string.Format(
+                            message, columnReferenceExpression.Table.GetType().Name, expression.KnownFunction,
+                            columnReferenceExpression.Table.Alias, columnReferenceExpression.Name,
+                            columnReferenceExpression.Table.GetType().Name));
                     }
-                    else if (mapping.UnionLayout != null)
-                        if (mapping.UnionLayout.ReferenceColumnName == columnReferenceExpression.Name)
-                            return new ColumnReferenceExpression()
-                            {
-                                Name = mapping.UnionLayout.TableIndexColumnName,
-                                Table = columnReferenceExpression.Table
-                            };
-                }
 
-                const string msg = "could not find columns [{1}.{2}] for function [{0}]";
-                throw new InvalidOperationException(string.Format(msg, expression.KnownFunction,
-                    columnReferenceExpression.Table.Alias, columnReferenceExpression.Name));
+                    var columnAlias = columnReferenceExpression.Name + "_Type";
+
+                    foreach (var union in subqueryDeclaration.Query.Query.Unions)
+                    {
+                        AddTypeColumn(union, columnReferenceExpression, columnAlias);
+                    }
+                    return new ColumnReferenceExpression()
+                    {
+                        Name = columnAlias,
+                        Table = columnReferenceExpression.Table
+                    };
+                }
+                else
+                {
+                    var resolvedTableMapping = mappingSource.ResolveTableByDbNameOrNull(tableDeclarationClause.Name);
+                    if (resolvedTableMapping == null)
+                    {
+                        const string message =
+                            "can't find table [{0}]  in column reference [{0}.{1}] for function [{2}]";
+                        throw new InvalidOperationException(string.Format(message,
+                            columnReferenceExpression.Table.Alias, columnReferenceExpression.Name,
+                            expression.KnownFunction));
+                    }
+
+                    foreach (var mapping in resolvedTableMapping.Properties)
+                    {
+                        if (mapping.SingleLayout != null)
+                        {
+                            if (mapping.SingleLayout.DbColumnName == columnReferenceExpression.Name)
+                            {
+                                if (string.IsNullOrEmpty(mapping.SingleLayout.NestedTableName))
+                                {
+                                    const string msgFormat =
+                                        "[{0}] function not supported for non-reference columns, [{1}.{2}]";
+                                    throw new InvalidOperationException(string.Format(msgFormat,
+                                        expression.KnownFunction,
+                                        columnReferenceExpression.Table.Alias, columnReferenceExpression.Name));
+                                }
+
+                                var byDbName = mappingSource.ResolveTableOrNull(mapping.SingleLayout.NestedTableName);
+                                if (byDbName == null || !byDbName.Index.HasValue)
+                                {
+                                    const string message = "can't find mapping for [{0}] following column reference " +
+                                                           "[{1}.{2}] for function [{3}]";
+                                    throw new InvalidOperationException(string.Format(message,
+                                        mapping.SingleLayout.NestedTableName, columnReferenceExpression.Table.Alias,
+                                        columnReferenceExpression.Name, expression.KnownFunction));
+                                }
+
+                                return new LiteralExpression()
+                                {
+                                    SqlType = SqlType.ByteArray,
+                                    Value = byDbName.Index.Value
+                                };
+                            }
+                        }
+                        else if (mapping.UnionLayout != null)
+                            if (mapping.UnionLayout.ReferenceColumnName == columnReferenceExpression.Name)
+                                return new ColumnReferenceExpression()
+                                {
+                                    Name = mapping.UnionLayout.TableIndexColumnName,
+                                    Table = columnReferenceExpression.Table
+                                };
+                    }
+
+                    const string msg = "could not find columns [{1}.{2}] for function [{0}]";
+                    throw new InvalidOperationException(string.Format(msg, expression.KnownFunction,
+                        columnReferenceExpression.Table.Alias, columnReferenceExpression.Name));
+                }
             }
 
             return expression;
+        }
+
+        private void AddTypeColumn(UnionClause union, ColumnReferenceExpression columnReferenceExpression, string columnAlias)
+        {
+            throw new NotImplementedException();
         }
 
         private static void ExpectArgumentCount(QueryFunctionExpression expression,
