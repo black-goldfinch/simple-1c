@@ -63,7 +63,7 @@ left join (select
     contractorsInner.id as contractorId
 from contractors2 as contractorsInner
 left join contracts1 as contracts on contractorsInner.mainData = contracts.mainData and contractorsInner.id = contracts.contractorId) as subquery on subquery.contractorId = contractorsOuter.id
-left join docs3 as docs on docs.contractorId = subquery.contractorId";
+left join docs3 as docs on contractorsOuter.mainData = docs.mainData and docs.contractorId = subquery.contractorId";
             CheckTranslate(mappings, source, expected);
         }
 
@@ -96,16 +96,10 @@ left join Справочник.ДоговорыКонтрагентов contract
 from (select
     contractors.name,
     contractors.id
-from (select
-    __nested_table0.name,
-    __nested_table0.id
-from contractorsTable2 as __nested_table0
-where __nested_table0.mainData in (10, 200)) as contractors) as contractor
-left join (select
-    __nested_table1.name,
-    __nested_table1.contractorId
-from contractsTable1 as __nested_table1
-where __nested_table1.mainData in (10, 200)) as contracts on contracts.contractorId = contractor.id";
+from contractorsTable2 as contractors
+where contractors.mainData in (10, 200)) as contractor
+left join contractsTable1 as contracts on contracts.contractorId = contractor.id
+where contracts.mainData in (10, 200)";
             CheckTranslate(mappings, source, expected, 10, 200);
         }
 
@@ -126,13 +120,10 @@ where __nested_table1.mainData in (10, 200)) as contracts on contracts.contracto
     t.inn as ИНН,
     t.Наименование_Alias as Наименование_Alias
 from (select
-    __subquery0.inn,
-    __subquery0.name as Наименование_Alias
-from (select
-    __nested_table0.inn,
-    __nested_table0.name
-from contractors0 as __nested_table0
-where __nested_table0.mainData in (10, 20, 30)) as __subquery0) as t";
+    inn,
+    name as Наименование_Alias
+from contractors0
+where mainData in (10, 20, 30)) as t";
             CheckTranslate(mappings, source, expected, 10, 20, 30);
         }
 

@@ -98,11 +98,15 @@ namespace Simple1C.Impl
                 inMemoryEntity = inmemoryEntityRevision.inMemoryEntity;
                 if (changed != null)
                 {
-                    var configurationName = ConfigurationName.Get(entity.GetType());
-                    if (configurationName.Scope == ConfigurationScope.Документы)
+                    if (!isTableSection)
                     {
-                        AssignNewGuid(entity, changed, "ВерсияДанных");
+                        var configurationName = ConfigurationName.Get(entity.GetType());
+                        if (configurationName.Scope == ConfigurationScope.Документы)
+                        {
+                            AssignNewGuid(entity, changed, "ВерсияДанных");
+                        }
                     }
+
                     inMemoryEntity.revision = new InMemoryEntityRevision(inMemoryEntity, inmemoryEntityRevision, changed);
                     Collection(entity.GetType()).revision++;    
                 }
