@@ -145,7 +145,7 @@ namespace Simple1C.Impl.Sql.Translation
         private readonly List<ISqlElement> areas;
         private readonly IMappingSource mappingSource;
 
-        public AddAreaToWhereClauseVisitor( IMappingSource mappingSource, List<ISqlElement> areas)
+        public AddAreaToWhereClauseVisitor(IMappingSource mappingSource, List<ISqlElement> areas)
         {
             this.areas = areas;
             this.mappingSource = mappingSource;
@@ -155,17 +155,25 @@ namespace Simple1C.Impl.Sql.Translation
         {
             var tableClause = clause.Source as TableDeclarationClause;
             if (tableClause == null)
+                tableClause = clause.JoinClauses
+                    .Where(x => x.JoinKind == JoinKind.Inner)
+                    .Where(x => x.Source is TableDeclarationClause)
+                    .Select(x => x.Source)
+                    .Cast<TableDeclarationClause>()
+                    .FirstOrDefault();
+            if (tableClause == null)
                 return base.VisitSelect(clause);
+
             var tableMapping = mappingSource.ResolveTableByDbNameOrNull(tableClause.Name);
             PropertyMapping property;
-            if (!tableMapping.TryGetProperty("ОбластьДанныхОсновныеДанные",out property))
+            if (!tableMapping.TryGetProperty(PropertyNames.area, out property))
                 return base.VisitSelect(clause);
             var areaExpression = new InExpression
             {
                 Column = new ColumnReferenceExpression
                 {
                     Name = property.SingleLayout.DbColumnName,
-                    Table = clause.Source
+                    Table = tableClause
                 },
                 Source = new ListExpression
                 {
@@ -181,7 +189,7 @@ namespace Simple1C.Impl.Sql.Translation
             else
                 clause.WhereExpression = areaExpression;
 
-            return clause;
+            return base.VisitSelect(clause);
         }
     }
 }

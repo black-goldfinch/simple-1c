@@ -78,7 +78,7 @@ from (select
         Наименование, 
         Ссылка 
     from Справочник.Контрагенты as contractors) contractor
-left join Справочник.ДоговорыКонтрагентов contracts on contracts.Владелец = contractor.Ссылка ";
+ join Справочник.ДоговорыКонтрагентов contracts on contracts.Владелец = contractor.Ссылка ";
 
             const string mappings = @"Справочник.ДоговорыКонтрагентов contractsTable1 Main
     Ссылка Single id
@@ -98,7 +98,7 @@ from (select
     contractors.id
 from contractorsTable2 as contractors
 where contractors.mainData in (10, 200)) as contractor
-left join contractsTable1 as contracts on contracts.contractorId = contractor.id
+inner join contractsTable1 as contracts on contracts.mainData = contractor.mainData and contracts.contractorId = contractor.id
 where contracts.mainData in (10, 200)";
             CheckTranslate(mappings, source, expected, 10, 200);
         }
