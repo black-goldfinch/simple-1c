@@ -344,7 +344,7 @@ from t1 as payments";
         }
 
         [Test]
-        public void CantGetIdentifierTypeForSubquery()
+        public void CanGetIdentifierTypeForSubquery()
         {
             const string sourceSql = @"select ИдентификаторТипа(contracts.ВалютаВзаиморасчетов) as Currency
     from ( select c.ВалютаВзаиморасчетов from Справочник.ДоговорыКонтрагентов as c) as contracts";
@@ -353,10 +353,34 @@ from t1 as payments";
     ОбластьДанныхОсновныеДанные Single d1
 Справочник.Валюты t2 Main
     ОбластьДанныхОсновныеДанные Single d1";
-            var exception = Assert.Throws<InvalidOperationException>(() => CheckTranslate(mappings, sourceSql, ""));
-            Assert.That(exception.Message, Is.EqualTo(
-                "[TypeIdentifier] function not supported for subquery column" +
-                " reference, [contracts.c1]. Table is of type [SubqueryTable]"));
+            var expected = @"select
+    contracts.c1_Type as Currency
+from (select
+    c.c1,
+    E'\\x00000002' as c1_Type
+from t1 as c) as contracts";
+            CheckTranslate(mappings, sourceSql, expected);
+        }
+
+        [Test]
+        public void CanGetIdentifierTypeForSubqueryUnionLayout()
+        {
+            const string sourceSql = @"select ИдентификаторТипа(contracts.Основание) as Currency
+    from ( select c.Основание from Справочник.ДоговорыКонтрагентов as c) as contracts";
+            const string mappings = @"Справочник.ДоговорыКонтрагентов t1 Main
+    Основание UnionReferences type tref rref Справочник.Валюты Справочник.ФизическиеЛица
+    ОбластьДанныхОсновныеДанные Single d1
+Справочник.Валюты t2 Main
+    ОбластьДанныхОсновныеДанные Single d1
+Справочник.ФизическиеЛица t3 Main
+    ОбластьДанныхОсновныеДанные Single d1";
+            var expected = @"select
+    contracts.rref_Type as Currency
+from (select
+    c.rref,
+    c.tref as rref_Type
+from t1 as c) as contracts";
+            CheckTranslate(mappings, sourceSql, expected);
         }
 
         [Test]
