@@ -13,10 +13,15 @@ namespace Simple1C.Impl
         private static readonly Dictionary<string, string> simpleTypesMap = new Dictionary<string, string>
         {
             {"Строка", "string"},
+            {"String", "string"},
             {"Булево", "bool"},
+            {"Boolean", "bool"},
             {"Дата", "DateTime?"},
+            {"Date", "DateTime?"},
             {"Уникальный идентификатор", "Guid?"},
+            {"Unique identifier", "Guid?"},
             {"Описание типов", "Type[]"},
+            {"Type descriptions", "Type[]"},
             {"ВидСчета", "int"}
         };
 
@@ -41,20 +46,20 @@ namespace Simple1C.Impl
         private static TypeInfo? GetTypeInfoOrNull(GlobalContext globalContext, object typeDescriptor, object type)
         {
             var typeAsString = globalContext.String(type);
-            if (typeAsString == "Число")
+            if (typeAsString == "Число" || typeAsString == "Number")
             {
                 var квалификаторыЧисла = ComHelpers.GetProperty(typeDescriptor, "КвалификаторыЧисла");
                 var floatLength = Convert.ToInt32(ComHelpers.GetProperty(квалификаторыЧисла, "РазрядностьДробнойЧасти"));
                 var digits = Convert.ToInt32(ComHelpers.GetProperty(квалификаторыЧисла, "Разрядность"));
                 return TypeInfo.Simple(floatLength == 0 ? (digits < 10 ? "int" : "long") : "decimal");
             }
-            if (typeAsString == "Строка")
+            if (typeAsString == "Строка" || typeAsString == "String")
             {
                 var квалификаторыСтроки = ComHelpers.GetProperty(typeDescriptor, "КвалификаторыСтроки");
                 var maxLength = Call.IntProp(квалификаторыСтроки, "Длина");
                 return TypeInfo.Simple("string", maxLength == 0 ? (int?) null : maxLength);
             }
-            if (typeAsString == "Хранилище значения")
+            if (typeAsString == "Хранилище значения" || typeAsString == "Value storage")
                 return null;
             string typeName;
             if (simpleTypesMap.TryGetValue(typeAsString, out typeName))

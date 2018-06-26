@@ -73,13 +73,22 @@ namespace Generator
                     "Usage: Generator.exe -cmd gen-cs-meta -connection-string <string> [-result-assembly-full-path <path>] -namespace-root <namespace> -scanItems Справочник.Банки,Документ.СписаниеСРасчетногоСчета [-source-path <sourcePath>] [-csproj-file-path]");
                 return -1;
             }
+
             object globalContext = null;
             LogHelpers.LogWithTiming(string.Format("connecting to [{0}]", connectionString),
                 () => globalContext = new GlobalContextFactory().Create(connectionString));
 
             sourcePath = sourcePath ?? GetTemporaryDirectoryFullPath();
-            if (Directory.Exists(sourcePath))
-                Directory.Delete(sourcePath, true);
+            try
+            {
+                if (Directory.Exists(sourcePath))
+                    Directory.Delete(sourcePath, true);
+            }
+            catch (Exception x)
+            {
+                Console.WriteLine("Cannot remove {0}\n{1}", sourcePath, x);
+            }
+
             string[] fileNames = null;
             LogHelpers.LogWithTiming(string.Format("generating code into [{0}]", sourcePath),
                 () =>
@@ -98,6 +107,7 @@ namespace Generator
                         csprojFilePath);
                     return -1;
                 }
+
                 LogHelpers.LogWithTiming(string.Format("patching proj file [{0}]", csprojFilePath),
                     () =>
                     {
@@ -109,28 +119,28 @@ namespace Generator
             if (!string.IsNullOrEmpty(resultAssemblyFullPath))
                 LogHelpers.LogWithTiming(string.Format("compiling [{0}] to assembly [{1}]",
                     sourcePath, resultAssemblyFullPath), () =>
+                {
+                    var cSharpCodeProvider = new CSharpCodeProvider();
+                    var compilerParameters = new CompilerParameters
                     {
-                        var cSharpCodeProvider = new CSharpCodeProvider();
-                        var compilerParameters = new CompilerParameters
+                        OutputAssembly = resultAssemblyFullPath,
+                        GenerateExecutable = false,
+                        GenerateInMemory = false,
+                        IncludeDebugInformation = false
+                    };
+                    var linqTo1CFilePath = PathHelpers.AppendBasePath("Simple1C.dll");
+                    compilerParameters.ReferencedAssemblies.Add(linqTo1CFilePath);
+                    var compilerResult = cSharpCodeProvider.CompileAssemblyFromFile(compilerParameters, fileNames);
+                    if (compilerResult.Errors.Count > 0)
+                    {
+                        Console.Out.WriteLine("compile errors");
+                        foreach (CompilerError error in compilerResult.Errors)
                         {
-                            OutputAssembly = resultAssemblyFullPath,
-                            GenerateExecutable = false,
-                            GenerateInMemory = false,
-                            IncludeDebugInformation = false
-                        };
-                        var linqTo1CFilePath = PathHelpers.AppendBasePath("Simple1C.dll");
-                        compilerParameters.ReferencedAssemblies.Add(linqTo1CFilePath);
-                        var compilerResult = cSharpCodeProvider.CompileAssemblyFromFile(compilerParameters, fileNames);
-                        if (compilerResult.Errors.Count > 0)
-                        {
-                            Console.Out.WriteLine("compile errors");
-                            foreach (CompilerError error in compilerResult.Errors)
-                            {
-                                Console.Out.WriteLine(error);
-                                Console.Out.WriteLine("===================");
-                            }
+                            Console.Out.WriteLine(error);
+                            Console.Out.WriteLine("===================");
                         }
-                    });
+                    }
+                });
             return 0;
         }
 
@@ -153,6 +163,7 @@ namespace Generator
                     "Usage: Generator.exe -cmd run-sql [-connection-strings <1c db connection strings comma delimited> | -connection-strings-file <connection strings with areas>] -query-file <path to file with 1c query> -result-connection-string <where to put results> [-dump-sql true] [-history-mode true]");
                 return -1;
             }
+
             var querySources = string.IsNullOrEmpty(connectionStrings)
                 ? StringHelpers.ParseLinesWithTabs(File.ReadAllText(connectionStringsFile),
                     (s, items) => new QuerySource
@@ -178,7 +189,8 @@ namespace Generator
                     CancellationToken = CancellationToken.None,
                     MaxDegreeOfParallelism = querySources.Length
                 };
-                Sql.Execute(querySources, queryText, writer, parallelOptions, dumpSql == "true", new Dictionary<string, object>());
+                Sql.Execute(querySources, queryText, writer, parallelOptions, dumpSql == "true",
+                    new Dictionary<string, object>());
                 stopwatch.Stop();
                 Console.Out.WriteLine("\r\ndone, [{0}] millis", stopwatch.ElapsedMilliseconds);
                 return 0;
@@ -204,6 +216,7 @@ namespace Generator
                     "Usage: Generator.exe -cmd translate-sql -connection-string <1c db connection string> -query-file <path to file with 1c query>");
                 return -1;
             }
+
             var db = new PostgreeSqlDatabase(connectionString);
             var mappingSchema = new PostgreeSqlSchemaStore(db);
             var translator = new QueryToSqlTranslator(mappingSchema, new int[0]);
@@ -227,6 +240,7 @@ namespace Generator
                     "Usage: Generator.exe -cmd gen-sql-meta -connection-string <string> -db-connection-string <connection string for PostgreeSql db>");
                 return -1;
             }
+
             GlobalContext globalContext = null;
             LogHelpers.LogWithTiming(string.Format("connecting to [{0}]", connectionString),
                 () => globalContext = new GlobalContext(new GlobalContextFactory().Create(connectionString)));
@@ -252,6 +266,7 @@ namespace Generator
                     "Usage: Generator.exe -cmd recreate-routines -connection-string <string> -db-connection-string <connection string for PostgreeSql db>");
                 return -1;
             }
+
             GlobalContext globalContext = null;
             LogHelpers.LogWithTiming(string.Format("connecting to [{0}]", connectionString),
                 () => globalContext = new GlobalContext(new GlobalContextFactory().Create(connectionString)));
