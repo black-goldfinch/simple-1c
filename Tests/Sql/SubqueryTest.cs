@@ -60,9 +60,10 @@ from contractors2 as contractorsOuter
 left join (select
     contracts.name as contractName,
     contractorsInner.inn as inn,
-    contractorsInner.id as contractorId
+    contractorsInner.id as contractorId,
+    contractorsInner.mainData as ОбластьДанныхОсновныеДанные
 from contractors2 as contractorsInner
-left join contracts1 as contracts on contractorsInner.mainData = contracts.mainData and contractorsInner.id = contracts.contractorId) as subquery on subquery.contractorId = contractorsOuter.id
+left join contracts1 as contracts on contractorsInner.mainData = contracts.mainData and contractorsInner.id = contracts.contractorId) as subquery on contractorsOuter.mainData = subquery.ОбластьДанныхОсновныеДанные and subquery.contractorId = contractorsOuter.id
 left join docs3 as docs on contractorsOuter.mainData = docs.mainData and docs.contractorId = subquery.contractorId";
             CheckTranslate(mappings, source, expected);
         }
@@ -95,10 +96,11 @@ from (select
     contractor.name as Наименование_2
 from (select
     contractors.name,
-    contractors.id
+    contractors.id,
+    contractors.mainData as ОбластьДанныхОсновныеДанные
 from contractorsTable2 as contractors
 where contractors.mainData in (10, 200)) as contractor
-inner join contractsTable1 as contracts on contracts.mainData = contractor.mainData and contracts.contractorId = contractor.id
+inner join contractsTable1 as contracts on contractor.ОбластьДанныхОсновныеДанные = contracts.mainData and contracts.contractorId = contractor.id
 where contracts.mainData in (10, 200)";
             CheckTranslate(mappings, source, expected, 10, 200);
         }
