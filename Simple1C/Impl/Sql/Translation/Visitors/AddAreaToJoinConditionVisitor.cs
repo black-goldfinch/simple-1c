@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Simple1C.Impl.Sql.SchemaMapping;
 using Simple1C.Impl.Sql.SqlAccess.Syntax;
 
@@ -16,10 +17,10 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                 return base.VisitJoin(clause);
             if (currentContext.AreaColumn.Table is SubqueryTable subq)
                 foreach (var union in subq.Query.Query.Unions)
-                    AddAreaColumn(union.SelectClause, PropertyNames.area);
+                    AddAreaColumn(union.SelectClause);
+            var columnAlias = PropertyNames.area;
             if (clause.Source is SubqueryTable subquery)
-                foreach (var union in subquery.Query.Query.Unions)
-                    AddAreaColumn(union.SelectClause, PropertyNames.area);
+                columnAlias = subquery.Query.Query.Unions.Select(x => AddAreaColumn(x.SelectClause)).First();
 
             clause.Condition = new AndExpression
             {
@@ -28,7 +29,7 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                     Left = currentContext.AreaColumn,
                     Right = new ColumnReferenceExpression
                     {
-                        Name = PropertyNames.area,
+                        Name = columnAlias,
                         Table = clause.Source
                     }
                 },
@@ -37,7 +38,7 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
             return base.VisitJoin(clause);
         }
 
-        private void AddAreaColumn(SelectClause select, string columnAlias)
+        private string AddAreaColumn(SelectClause select)
         {
             var tableClause = select.Source as TableDeclarationClause;
             if (tableClause == null)
@@ -50,20 +51,31 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                         message, select.Source.Alias, select.Source.GetType().Name));
                 }
 
-                foreach (var union in subquery.Query.Query.Unions)
-                    AddAreaColumn(union.SelectClause, PropertyNames.area);
-                return;
+                return subquery.Query.Query.Unions.Select(x => AddAreaColumn(x.SelectClause)).First();
             }
 
-            select.Fields.Add(new SelectFieldExpression
-            {
-                Alias = columnAlias,
-                Expression = new ColumnReferenceExpression
+            var column = select.Fields
+                .Where(x => x.Expression is ColumnReferenceExpression col && col.Name == PropertyNames.area)
+                .Select(x => new
                 {
-                    Name = PropertyNames.area,
-                    Table = tableClause
-                }
-            });
+                    Column = x.Expression as ColumnReferenceExpression,
+                    Alias = x.Alias
+                })
+                .SingleOrDefault();
+            string columnAlias = PropertyNames.area;
+            if (column == null)
+                select.Fields.Add(new SelectFieldExpression
+                {
+                    Alias = columnAlias,
+                    Expression = new ColumnReferenceExpression
+                    {
+                        Name = PropertyNames.area,
+                        Table = tableClause
+                    }
+                });
+            else
+                columnAlias = column.Alias ?? column.Column.Name;
+            return columnAlias;
         }
 
         public override SubqueryTable VisitSubqueryTable(SubqueryTable clause)

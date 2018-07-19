@@ -106,6 +106,78 @@ where contracts.mainData in (10, 200)";
         }
 
         [Test]
+        public void JoinOnSubqueryWithAreaColumn()
+        {
+            const string source = @"
+select
+    contracts.Наименование,
+    contractor.Наименование
+from (select
+        Наименование,
+        Ссылка,
+        ОбластьДанныхОсновныеДанные
+    from Справочник.Контрагенты as contractors) contractor
+ join Справочник.ДоговорыКонтрагентов contracts on contracts.Владелец = contractor.Ссылка ";
+
+            const string mappings = @"Справочник.ДоговорыКонтрагентов contractsTable1 Main
+    Ссылка Single id
+    Наименование Single name
+    ОбластьДанныхОсновныеДанные Single mainData
+    Владелец Single contractorId Справочник.Контрагенты
+Справочник.Контрагенты contractorsTable2 Main
+    Ссылка Single id
+    Наименование Single name
+    ОбластьДанныхОсновныеДанные Single mainData";
+
+            const string expected = @"select
+    contracts.name as Наименование,
+    contractor.name as Наименование_2
+from (select
+    contractors.name,
+    contractors.id,
+    contractors.mainData
+from contractorsTable2 as contractors) as contractor
+inner join contractsTable1 as contracts on contractor.mainData = contracts.mainData and contracts.contractorId = contractor.id";
+            CheckTranslate(mappings, source, expected);
+        }
+
+        [Test]
+        public void JoinToSubqueryWithAreaColumn()
+        {
+            const string source = @"
+select
+    contracts.Наименование,
+    contractor.Наименование
+from Справочник.ДоговорыКонтрагентов contracts
+ join (select
+        Наименование,
+        Ссылка,
+        ОбластьДанныхОсновныеДанные
+    from Справочник.Контрагенты as contractors) contractor on contracts.Владелец = contractor.Ссылка ";
+
+            const string mappings = @"Справочник.ДоговорыКонтрагентов contractsTable1 Main
+    Ссылка Single id
+    Наименование Single name
+    ОбластьДанныхОсновныеДанные Single mainData
+    Владелец Single contractorId Справочник.Контрагенты
+Справочник.Контрагенты contractorsTable2 Main
+    Ссылка Single id
+    Наименование Single name
+    ОбластьДанныхОсновныеДанные Single mainData";
+
+            const string expected = @"select
+    contracts.name as Наименование,
+    contractor.name as Наименование_2
+from contractsTable1 as contracts
+inner join (select
+    contractors.name,
+    contractors.id,
+    contractors.mainData
+from contractorsTable2 as contractors) as contractor on contracts.mainData = contractor.mainData and contracts.contractorId = contractor.id";
+            CheckTranslate(mappings, source, expected);
+        }
+
+        [Test]
         public void SelectFromSubqueryWithAreas()
         {
             const string source = "select ИНН, Наименование_Alias from " +
