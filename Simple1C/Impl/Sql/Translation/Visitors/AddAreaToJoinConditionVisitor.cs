@@ -15,12 +15,18 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
             var currentContext = contexts.Peek();
             if (currentContext == null || currentContext.AreaColumn == null)
                 return base.VisitJoin(clause);
-            if (currentContext.AreaColumn.Table is SubqueryTable subq)
-                foreach (var union in subq.Query.Query.Unions)
-                    AddAreaColumn(union.SelectClause);
+            if (currentContext.AreaColumn.Table is SubqueryTable subq && currentContext.AreaColumn.Name == null)
+                currentContext.AreaColumn.Name = subq.Query.Query.Unions
+                    .Select(x => AddAreaColumn(x.SelectClause))
+                    .ToArray()
+                    .First();
+
             var columnAlias = PropertyNames.area;
             if (clause.Source is SubqueryTable subquery)
-                columnAlias = subquery.Query.Query.Unions.Select(x => AddAreaColumn(x.SelectClause)).First();
+                columnAlias = subquery.Query.Query.Unions
+                    .Select(x => AddAreaColumn(x.SelectClause))
+                    .ToArray()
+                    .First();
 
             clause.Condition = new AndExpression
             {
@@ -59,22 +65,38 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                 .Select(x => new
                 {
                     Column = x.Expression as ColumnReferenceExpression,
-                    Alias = x.Alias
+                    x.Alias
                 })
                 .SingleOrDefault();
             string columnAlias = PropertyNames.area;
             if (column == null)
-                select.Fields.Add(new SelectFieldExpression
+            {
+                column = new
                 {
-                    Alias = columnAlias,
-                    Expression = new ColumnReferenceExpression
+                    Column = new ColumnReferenceExpression
                     {
                         Name = PropertyNames.area,
                         Table = tableClause
-                    }
+                    },
+                    Alias = columnAlias
+                };
+                select.Fields.Add(new SelectFieldExpression
+                {
+                    Alias = column.Alias,
+                    Expression = column.Column
                 });
+            }
             else
                 columnAlias = column.Alias ?? column.Column.Name;
+
+            if (select.GroupBy != null)
+            {
+                var groupped = select.GroupBy.Expressions
+                    .SingleOrDefault(x => x is ColumnReferenceExpression col && col.Name == PropertyNames.area);
+                if (groupped == null)
+                    select.GroupBy.Expressions.Add(column.Column);
+            }
+
             return columnAlias;
         }
 
@@ -84,10 +106,9 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
             if (context.AreaColumn == null)
                 context.AreaColumn = new ColumnReferenceExpression
                 {
-                    Name = PropertyNames.area,
+                    Name = null,
                     Table = clause
                 };
-
             return base.VisitSubqueryTable(clause);
         }
 
@@ -101,6 +122,14 @@ namespace Simple1C.Impl.Sql.Translation.Visitors
                     Table = clause
                 };
             return base.VisitTableDeclaration(clause);
+        }
+
+        public override UnionClause VisitUnion(UnionClause clause)
+        {
+            contexts.Push(new Context());
+            var result = base.VisitUnion(clause);
+            contexts.Pop();
+            return result;
         }
 
         public override SqlQuery VisitSqlQuery(SqlQuery sqlQuery)
