@@ -131,13 +131,11 @@ namespace Simple1C.Impl.Sql.SchemaMapping
 
         private const string SqlByDbName = "select queryTableName,dbName,type,properties " +
                                    "from simple1c.tableMappings " +
-                                   "where lower(dbName) = lower(@p0)" +
-                                   "limit 1";
+                                   "where lower(dbName) = lower(@p0)";
 
         private const string SqlByQueryName = "select queryTableName,dbName,type,properties " +
                                       "from simple1c.tableMappings " +
-                                      "where lower(queryTableName) = lower(@p0)" +
-                                      "limit 1";
+                                      "where lower(queryTableName) = lower(@p0)";
 
         private TableMapping LoadMappingOrNull(string queryName)
         {
