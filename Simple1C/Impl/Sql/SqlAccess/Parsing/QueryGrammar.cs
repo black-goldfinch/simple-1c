@@ -155,6 +155,16 @@ namespace Simple1C.Impl.Sql.SqlAccess.Parsing
                     Value = ToDatePart(c),
                     SqlType = SqlType.DatePart
                 });
+            var binaryLiteral = NonTerminal("binaryLiteral", 
+                @"E'\x" + new IdentifierTerminal("binaryLiteralContent")
+                {
+                    AllFirstChars = "0123456789ABCDEFabcdef",
+                    AllChars = "0123456789ABCDEFabcdef"
+                } + "'", node => new LiteralExpression
+                {
+                    Value = node.Token.Value,
+                    SqlType = SqlType.ByteArray
+                });
             var stringLiteral = new StringLiteral("string",
                 "\"",
                 StringOptions.AllowsAllEscapes | StringOptions.AllowsDoubledQuote,
@@ -237,7 +247,7 @@ namespace Simple1C.Impl.Sql.SqlAccess.Parsing
             exprList.Rule = MakeStarRule(exprList, ToTerm(","), expression);
             parExprList.Rule = "(" + exprList + ")";
             parExpr.Rule = "(" + expression + ")";
-            term.Rule = columnRef | stringLiteral | numberLiteral | valueLiteral | boolLiteral | nullLiteral
+            term.Rule = columnRef | stringLiteral | binaryLiteral | numberLiteral | valueLiteral | boolLiteral | nullLiteral
                         | aggregate | queryFunctionExpr | parameterLiteral
                         | parExpr | subquery;
             subquery.Rule = "(" + selectStatement + ")";

@@ -39,6 +39,20 @@ where contracts.__nested_field0 = false";
         }
 
         [Test]
+        public void BinaryLiteral()
+        {
+            const string sourceSql = @"select Ссылка
+    from справочник.ДоговорыКонтрагентов as contracts
+    where contracts.Ссылка = E'\x0903'";
+            const string mappings = @"Справочник.ДоговорыКонтрагентов t1 Main
+    Ссылка Single c1";
+            const string expectedResult = @"select с1
+from t1 as contracts
+where contracts.с1 = E'\x0903'";
+            CheckTranslate(mappings, sourceSql, expectedResult);
+        }
+
+        [Test]
         public void EscapeSingleQuotesInStringLiterals()
         {
             const string sourceSql = "select * from Справочник.Контрагенты where ИНН <> \"123'456\"";
