@@ -43,12 +43,13 @@ where contracts.__nested_field0 = false";
         {
             const string sourceSql = @"select Ссылка
     from справочник.ДоговорыКонтрагентов as contracts
-    where contracts.Ссылка = E'\x0903'";
+    where contracts.Ссылка = \x090A03FE";
             const string mappings = @"Справочник.ДоговорыКонтрагентов t1 Main
     Ссылка Single c1";
-            const string expectedResult = @"select с1
+            const string expectedResult = @"select
+    contracts.c1 as Ссылка
 from t1 as contracts
-where contracts.с1 = E'\x0903'";
+where contracts.c1 = E'\\x090A03FE'";
             CheckTranslate(mappings, sourceSql, expectedResult);
         }
 

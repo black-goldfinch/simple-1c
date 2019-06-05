@@ -376,15 +376,19 @@ namespace Simple1C.Impl.Sql.Translation
             switch (sqlType)
             {
                 case SqlType.ByteArray:
-                    var b = value as byte?;
-                    if (b.HasValue)
-                        return new[] {b.Value};
-                    var i = value as int?;
-                    if (i.HasValue)
-                        return BitConverter.GetBytes(i.Value).Reverse().ToArray();
-                    const string messageFormat = "can't convert value [{0}] of type [{1}] to [{2}]";
-                    throw new InvalidOperationException(string.Format(messageFormat, value,
-                        value == null ? "<null>" : value.GetType().FormatName(), sqlType));
+                    switch (value)
+                    {
+                        case byte singleByte:
+                            return new[] {singleByte};
+                        case int singleInt:
+                            return BitConverter.GetBytes(singleInt).Reverse().ToArray();
+                        case byte[] bytes:
+                            return bytes;
+                        default:
+                            const string messageFormat = "can't convert value [{0}] of type [{1}] to [{2}]";
+                            throw new InvalidOperationException(string.Format(messageFormat, value,
+                                value == null ? "<null>" : value.GetType().FormatName(), sqlType));
+                    }
                 case SqlType.DatePart:
                     return value.ToString();
                 default:

@@ -155,16 +155,9 @@ namespace Simple1C.Impl.Sql.SqlAccess.Parsing
                     Value = ToDatePart(c),
                     SqlType = SqlType.DatePart
                 });
-            var binaryLiteral = NonTerminal("binaryLiteral", 
-                @"E'\x" + new IdentifierTerminal("binaryLiteralContent")
-                {
-                    AllFirstChars = "0123456789ABCDEFabcdef",
-                    AllChars = "0123456789ABCDEFabcdef"
-                } + "'", node => new LiteralExpression
-                {
-                    Value = node.Token.Value,
-                    SqlType = SqlType.ByteArray
-                });
+
+            var binaryLiteral = new BinaryTerminal("binaryLiteral");
+
             var stringLiteral = new StringLiteral("string",
                 "\"",
                 StringOptions.AllowsAllEscapes | StringOptions.AllowsDoubledQuote,

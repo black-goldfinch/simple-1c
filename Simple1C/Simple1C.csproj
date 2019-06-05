@@ -125,6 +125,7 @@
     <Compile Include="Impl\Sql\SchemaMapping\IMappingSource.cs" />
     <Compile Include="Impl\Sql\SchemaMapping\SingleLayout.cs" />
     <Compile Include="Impl\Sql\SqlAccess\MsSqlDatabase.cs" />
+    <Compile Include="Impl\Sql\SqlAccess\Parsing\BinaryTerminal.cs" />
     <Compile Include="Impl\Sql\SqlAccess\Parsing\ElementsHolder.cs" />
     <Compile Include="Impl\Sql\SqlAccess\Parsing\Identifier.cs" />
     <Compile Include="Impl\Sql\SqlAccess\Parsing\ParseHelpers.cs" />
