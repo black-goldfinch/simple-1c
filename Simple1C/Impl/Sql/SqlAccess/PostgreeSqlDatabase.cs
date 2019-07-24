@@ -78,7 +78,7 @@ namespace Simple1C.Impl.Sql.SqlAccess
             if (type == typeof(string))
                 return column.MaxLength < 0
                     ? "text"
-                    : "mvarchar(" + column.MaxLength + ")";
+                    : "varchar(" + column.MaxLength + ")";
             if (type == typeof(DateTime))
                 return "date";
             if (type == typeof(decimal))
