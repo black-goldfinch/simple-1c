@@ -185,7 +185,8 @@ namespace Simple1C.Impl
                         newPostingValue = true;
                     }
                 }
-                Write(comObject, configurationName.Value, source.Controller.IsNew ? null : newPostingValue);
+                Write(comObject, configurationName.Value,
+                    (source.Controller.IsNew && newPostingValue == false) ? null : newPostingValue);
                 switch (configurationName.Value.Scope)
                 {
                     case ConfigurationScope.Справочники:
