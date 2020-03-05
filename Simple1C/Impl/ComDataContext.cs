@@ -43,47 +43,42 @@ namespace Simple1C.Impl
 
         public void Save(object entity)
         {
-            if (entity == null)
-                throw new InvalidOperationException("entity is null");
-            var constantEntity = entity as Constant;
-            if (constantEntity != null)
-            {
-                SaveConstant(constantEntity);
-                return;
-            }
             var entitiesToSave = new List<Abstract1CEntity>();
-            var abstract1CEntity = entity as Abstract1CEntity;
-            if (abstract1CEntity != null)
+            switch (entity)
             {
-                abstract1CEntity.Controller.PrepareToSave(abstract1CEntity, entitiesToSave);
-                SaveEntities(entitiesToSave);
-                return;
-            }
-            var enumerable = entity as IEnumerable;
-            if (enumerable != null)
-            {
-                foreach (var item in enumerable)
+                case null:
+                    throw new InvalidOperationException("entity is null");
+                case Constant constantEntity:
+                    SaveConstant(constantEntity);
+                    return;
+                case Abstract1CEntity abstract1CEntity:
+                    abstract1CEntity.Controller.PrepareToSave(abstract1CEntity, entitiesToSave);
+                    SaveEntities(entitiesToSave);
+                    return;
+                case IEnumerable enumerable:
                 {
-                    if (item == null)
-                        throw new InvalidOperationException("some items are null");
-                    abstract1CEntity = item as Abstract1CEntity;
-                    if (abstract1CEntity != null)
+                    foreach (var item in enumerable)
                     {
-                        abstract1CEntity.Controller.PrepareToSave(abstract1CEntity, entitiesToSave);
-                        continue;
+                        switch (item)
+                        {
+                            case null:
+                                throw new InvalidOperationException("some items are null");
+                            case Abstract1CEntity abstract1CEntity:
+                                abstract1CEntity.Controller.PrepareToSave(abstract1CEntity, entitiesToSave);
+                                continue;
+                            case Constant constantEntity:
+                                SaveConstant(constantEntity);
+                                continue;
+                            default:
+                                throw new InvalidOperationException(FormatInvalidEntityTypeMessage(item));
+                        }
                     }
-                    constantEntity = item as Constant;
-                    if (constantEntity != null)
-                    {
-                        SaveConstant(constantEntity);
-                        continue;
-                    }
-                    throw new InvalidOperationException(FormatInvalidEntityTypeMessage(item));
+                    SaveEntities(entitiesToSave);
+                    return;
                 }
-                SaveEntities(entitiesToSave);
-                return;
+                default:
+                    throw new InvalidOperationException(FormatInvalidEntityTypeMessage(entity));
             }
-            throw new InvalidOperationException(FormatInvalidEntityTypeMessage(entity));
         }
 
         private void SaveConstant(Constant constantEntity)
