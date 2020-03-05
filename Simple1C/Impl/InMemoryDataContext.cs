@@ -12,7 +12,8 @@ namespace Simple1C.Impl
 {
     public class InMemoryDataContext : IDataContext
     {
-        private readonly Dictionary<Type, InMemoryEntityCollection> committed = new Dictionary<Type, InMemoryEntityCollection>();
+        private readonly Dictionary<Type, InMemoryEntityCollection> committed =
+            new Dictionary<Type, InMemoryEntityCollection>();
 
         private readonly TypeRegistry typeRegistry;
 
@@ -34,36 +35,105 @@ namespace Simple1C.Impl
 
         public IQueryable<T> Select<T>(string sourceName = null)
         {
-            return Collection(typeof (T))
-                .list.Select(x => (T) CreateEntity(typeof (T), x))
+            Func<Type, InMemoryEntity, object> entityCreator;
+            if (typeof(Abstract1CEntity).IsAssignableFrom(typeof(T)))
+                entityCreator = CreateAbstractEntity;
+            else if (typeof(Constant).IsAssignableFrom(typeof(T)))
+                entityCreator = CreateConstantEntity;
+            else
+                throw new InvalidOperationException($"invalid entity type [{typeof(T)}]");
+
+            return Collection(typeof(T)).list
+                .Select(x => (T) entityCreator(typeof(T), x))
                 .AsQueryable();
         }
 
-        private static object CreateEntity(Type type, InMemoryEntity entity)
+        private static object CreateAbstractEntity(Type type, InMemoryEntity entity)
         {
             var result = (Abstract1CEntity) FormatterServices.GetUninitializedObject(type);
             result.Controller = new EntityController(entity.revision);
             return result;
         }
 
-        public void Save(object entity)
+        private static object CreateConstantEntity(Type type, InMemoryEntity entity)
         {
-            if (entity == null)
-                throw new InvalidOperationException("entity is null");
-            var abstract1CEntity = entity as Abstract1CEntity;
-            if (abstract1CEntity == null)
-            {
-                const string messageFormat = "invalid entity type [{0}]";
-                throw new InvalidOperationException(string.Format(messageFormat,
-                    entity.GetType().FormatName()));
-            }
-            var entitiesToSave = new List<Abstract1CEntity>();
-            abstract1CEntity.Controller.PrepareToSave(abstract1CEntity, entitiesToSave);
-            foreach (var e in entitiesToSave)
-                Save(e, false);
+            var result = (Constant) FormatterServices.GetUninitializedObject(type);
+            result.ЗначениеНетипизированное =
+                entity.revision.TryLoadValue(nameof(result.ЗначениеНетипизированное), typeof(object), out var item)
+                    ? item
+                    : throw new InvalidOperationException($"Constant [{type.Name}] value is empty");
+            return result;
         }
 
-        private InMemoryEntity Save(Abstract1CEntity entity, bool isTableSection)
+        public void Save(object entity)
+        {
+            if (entity is IEnumerable collection)
+            {
+                foreach (var item in collection)
+                {
+                    try
+                    {
+                        SaveEntity(item);
+                    }
+                    catch (Exception e)
+                    {
+                        throw new InvalidOperationException(
+                            $"Error when saving entity [{item.GetType().FormatName()}] of collection", e);
+                    }
+                }
+            }
+            else SaveEntity(entity);
+        }
+
+        private void SaveEntity(object entity)
+        {
+            switch (entity)
+            {
+                case null:
+                    throw new InvalidOperationException("entity is null");
+                case Abstract1CEntity abstract1CEntity:
+                    var entitiesToSave = new List<Abstract1CEntity>();
+                    abstract1CEntity.Controller.PrepareToSave(abstract1CEntity, entitiesToSave);
+                    foreach (var e in entitiesToSave)
+                        SaveAbstract(e, false);
+                    break;
+                case Constant constant:
+                    SaveConstant(constant);
+                    break;
+                default:
+                    const string messageFormat = "invalid entity type [{0}]";
+                    throw new InvalidOperationException(string.Format(messageFormat,
+                        entity.GetType().FormatName()));
+            }
+        }
+
+        private InMemoryEntity SaveConstant(Constant entity)
+        {
+            var entityType = entity.GetType();
+
+            var collection = Collection(entityType);
+            if (collection.list.Count > 1)
+                throw new InvalidOperationException($"Whoops, constant [{entityType}] was duplicated");
+
+            var inMemoryEntity = new InMemoryEntity
+            {
+                entityType = entityType
+            };
+
+            var existingItem = collection.list.SingleOrDefault();
+            inMemoryEntity.revision =
+                new InMemoryEntityRevision(inMemoryEntity, existingItem?.revision, new Dictionary<string, object>
+                {
+                    [nameof(Constant.ЗначениеНетипизированное)] = entity.ЗначениеНетипизированное
+                });
+
+            collection.list.Clear();
+            collection.list.Add(inMemoryEntity);
+            collection.revision++;
+            return inMemoryEntity;
+        }
+
+        private InMemoryEntity SaveAbstract(Abstract1CEntity entity, bool isTableSection)
         {
             if (entity == null)
                 return null;
@@ -77,24 +147,27 @@ namespace Simple1C.Impl
                     var abstract1CEntity = changed[k] as Abstract1CEntity;
                     if (abstract1CEntity != null)
                     {
-                        changed[k] = Save(abstract1CEntity, false);
+                        changed[k] = SaveAbstract(abstract1CEntity, false);
                         continue;
                     }
+
                     var list = changed[k] as IList;
                     if (list != null)
                     {
                         changed[k] = ConvertList(list);
                         continue;
                     }
+
                     var syncList = changed[k] as SyncList;
                     if (syncList != null)
                         changed[k] = ConvertList(syncList.Current);
                 }
             }
+
             InMemoryEntity inMemoryEntity;
             if (!entity.Controller.IsNew)
             {
-                var inmemoryEntityRevision = (InMemoryEntityRevision)entity.Controller.ValueSource;
+                var inmemoryEntityRevision = (InMemoryEntityRevision) entity.Controller.ValueSource;
                 inMemoryEntity = inmemoryEntityRevision.inMemoryEntity;
                 if (changed != null)
                 {
@@ -132,6 +205,7 @@ namespace Simple1C.Impl
                         AssignNewGuid(entity, changed, "Номер");
                         AssignNewGuid(entity, changed, "ВерсияДанных");
                     }
+
                     if (entity.Controller.IsNew && configurationName.HasReference)
                     {
                         var idProperty = entity.GetType().GetProperty(EntityHelpers.idPropertyName);
@@ -139,11 +213,13 @@ namespace Simple1C.Impl
                             throw new InvalidOperationException("assertion failure");
                         AssignValue(entity, changed, idProperty, Guid.NewGuid());
                     }
+
                     var inMemoryEntityCollection = Collection(entity.GetType());
                     inMemoryEntityCollection.revision++;
                     inMemoryEntityCollection.list.Add(inMemoryEntity);
                 }
             }
+
             entity.Controller.ResetDirty(inMemoryEntity.revision);
             return inMemoryEntity;
         }
@@ -152,11 +228,12 @@ namespace Simple1C.Impl
         {
             var result = new List<InMemoryEntity>(newList.Count);
             foreach (var l in newList)
-                result.Add(Save((Abstract1CEntity)l, true));
+                result.Add(SaveAbstract((Abstract1CEntity) l, true));
             return result;
         }
 
-        private static void AssignNewGuid(Abstract1CEntity target, Dictionary<string, object> committed, string property)
+        private static void AssignNewGuid(Abstract1CEntity target, Dictionary<string, object> committed,
+            string property)
         {
             if (committed.ContainsKey(property))
                 return;
@@ -165,8 +242,9 @@ namespace Simple1C.Impl
                 return;
             AssignValue(target, committed, codeProperty, Guid.NewGuid().ToString());
         }
-        
-        private static void AssignValue(Abstract1CEntity target, Dictionary<string, object> committed, PropertyInfo property, object value)
+
+        private static void AssignValue(Abstract1CEntity target, Dictionary<string, object> committed,
+            PropertyInfo property, object value)
         {
             committed[property.Name] = value;
             var oldTrackChanges = target.Controller.TrackChanges;
@@ -183,16 +261,17 @@ namespace Simple1C.Impl
 
         private InMemoryEntityCollection Collection(Type type)
         {
-            return committed.GetOrAdd(type, t => new InMemoryEntityCollection{list = new List<InMemoryEntity>()});
+            return committed.GetOrAdd(type, t => new InMemoryEntityCollection {list = new List<InMemoryEntity>()});
         }
 
-        private class InMemoryEntityRevision: IValueSource
+        private class InMemoryEntityRevision : IValueSource
         {
             public readonly InMemoryEntity inMemoryEntity;
             private readonly InMemoryEntityRevision previous;
             private readonly Dictionary<string, object> properties;
 
-            public InMemoryEntityRevision(InMemoryEntity inMemoryEntity, InMemoryEntityRevision previous, Dictionary<string, object> properties)
+            public InMemoryEntityRevision(InMemoryEntity inMemoryEntity, InMemoryEntityRevision previous,
+                Dictionary<string, object> properties)
             {
                 this.inMemoryEntity = inMemoryEntity;
                 this.previous = previous;
@@ -218,32 +297,40 @@ namespace Simple1C.Impl
                         result = Convert(type, result);
                         return true;
                     }
+
                     rev = rev.previous;
                 }
+
                 return false;
             }
 
+            //TODO add Constant logic??
             private static object Convert(Type type, object value)
             {
                 if (type == typeof(object))
                 {
-                    var entity = value as InMemoryEntity;
-                    return entity != null
-                           && typeof(Abstract1CEntity).IsAssignableFrom(entity.entityType)
-                        ? CreateEntity(entity.entityType, entity)
-                        : value;
+                    if (value is InMemoryEntity entity)
+                    {
+                        return typeof(Abstract1CEntity).IsAssignableFrom(entity.entityType)
+                            ? CreateAbstractEntity(entity.entityType, entity)
+                            : value;
+                    }
+
+                    return value;
                 }
+
                 if (typeof(IList).IsAssignableFrom(type))
                 {
-                    var oldList = (IList)value;
+                    var oldList = (IList) value;
                     var itemType = type.GetGenericArguments()[0];
                     var newList = ListFactory.Create(itemType, null, oldList.Count);
                     foreach (InMemoryEntity l in oldList)
-                        newList.Add(CreateEntity(itemType, l));
+                        newList.Add(CreateAbstractEntity(itemType, l));
                     return newList;
                 }
+
                 return typeof(Abstract1CEntity).IsAssignableFrom(type) && value != null
-                    ? CreateEntity(type, (InMemoryEntity)value)
+                    ? CreateAbstractEntity(type, (InMemoryEntity) value)
                     : value;
             }
         }

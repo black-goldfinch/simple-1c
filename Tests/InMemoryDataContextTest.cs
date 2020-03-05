@@ -3,10 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Simple1C.Interface;
+using Simple1C.Interface.ObjectModel;
 using Simple1C.Tests.Helpers;
 using Simple1C.Tests.Metadata1C.Документы;
+using Simple1C.Tests.Metadata1C.Константы;
 using Simple1C.Tests.Metadata1C.Перечисления;
 using Simple1C.Tests.Metadata1C.Справочники;
+using Simple1C.Tests.TestEntities;
+using ДополнительнаяКолонкаПечатныхФормДокументов = Simple1C.Tests.Metadata1C.Перечисления.ДополнительнаяКолонкаПечатныхФормДокументов;
 
 namespace Simple1C.Tests
 {
@@ -69,12 +73,12 @@ namespace Simple1C.Tests
         public void TakeLastRevisionOnQuery()
         {
             dataContext.Save(new ДоговорыКонтрагентов
+            {
+                Владелец = new Контрагенты
                 {
-                    Владелец = new Контрагенты
-                    {
-                        Наименование = "test contractor name"
-                    }
-                });
+                    Наименование = "test contractor name"
+                }
+            });
 
             var контрагент = dataContext.Single<Контрагенты>();
             контрагент.Наименование = "test changed contractor name";
@@ -139,7 +143,7 @@ namespace Simple1C.Tests
         [Test]
         public void CanUpdateEntity()
         {
-            var contractor = new Контрагенты { Наименование = "Вася" };
+            var contractor = new Контрагенты {Наименование = "Вася"};
             dataContext.Save(contractor);
 
             contractor.Наименование = "Ваня";
@@ -351,7 +355,7 @@ namespace Simple1C.Tests
             var array = dataContext.Select<БанковскиеСчета>().ToArray();
             Assert.That(array.Length, Is.EqualTo(1));
             Assert.That(array[0].Владелец, Is.TypeOf<Контрагенты>());
-            Assert.That(((Контрагенты)array[0].Владелец).Наименование,
+            Assert.That(((Контрагенты) array[0].Владелец).Наименование,
                 Is.EqualTo("Тестовый контрагент"));
         }
 
@@ -421,6 +425,136 @@ namespace Simple1C.Tests
                 .ToArray();
             Assert.That(договоры.Length, Is.EqualTo(1));
             Assert.That(договоры[0].Владелец, Is.Null);
+        }
+
+        [Test]
+        public void CanSaveEnumerable_AbstractEntity()
+        {
+            var collection = new[]
+            {
+                new Контрагенты {Наименование = "КА1"},
+                new Контрагенты {Наименование = "КА2"},
+                new Контрагенты {Наименование = "КА3"},
+            };
+
+            dataContext.Save(collection[0], collection[1], collection[2]);
+
+            var entities = dataContext.Select<Контрагенты>().ToArray();
+            Assert.That(entities.Length, Is.EqualTo(3));
+            Assert.That(entities[0].Наименование, Is.EqualTo("КА1"));
+            Assert.That(entities[1].Наименование, Is.EqualTo("КА2"));
+            Assert.That(entities[2].Наименование, Is.EqualTo("КА3"));
+        }
+
+        [Test]
+        public void CanSaveEnumerable_Constants()
+        {
+            var использоватьДатыЗапретаИзменения = new ИспользоватьДатыЗапретаИзменения {Значение = true};
+            var версияДатЗапретаИзменения = new ВерсияДатЗапретаИзменения() {Значение = Guid.NewGuid()};
+            var collection = new object[]
+            {
+                использоватьДатыЗапретаИзменения,
+                версияДатЗапретаИзменения,
+            };
+
+            dataContext.Save(collection[0], collection[1]);
+
+            var использоватьДаты = dataContext.Select<ИспользоватьДатыЗапретаИзменения>().ToArray();
+            AssertSingleConstant(использоватьДаты, использоватьДатыЗапретаИзменения);
+            var версии = dataContext.Select<ВерсияДатЗапретаИзменения>().ToArray();
+            AssertSingleConstant(версии, версияДатЗапретаИзменения);
+        }
+
+        [Test]
+        public void CantSaveEnumerableOfEnumerables()
+        {
+            var collection = new[]
+            {
+                new[]
+                {
+                    new Контрагенты {Наименование = "КА1"},
+                    new Контрагенты {Наименование = "КА2"},
+                    new Контрагенты {Наименование = "КА3"},
+                },
+                new[]
+                {
+                    new Контрагенты {Наименование = "КА4"},
+                    new Контрагенты {Наименование = "КА5"},
+                    new Контрагенты {Наименование = "КА6"}
+                }
+            };
+
+            var message = Assert.Throws<InvalidOperationException>(() => dataContext.Save(collection)).Message;
+            Assert.That(message, Is.EqualTo("Error when saving entity [Контрагенты[]] of collection"));
+        }
+
+        [Test]
+        public void CanSaveConstant()
+        {
+            var датыЗапрета = dataContext.Select<ИспользоватьДатыЗапретаИзменения>().ToArray();
+            Assert.That(датыЗапрета.Length, Is.EqualTo(0));
+
+            var использоватьДатыЗапрета = new ИспользоватьДатыЗапретаИзменения {Значение = true};
+            dataContext.Save(использоватьДатыЗапрета);
+            датыЗапрета = dataContext.Select<ИспользоватьДатыЗапретаИзменения>().ToArray();
+            AssertSingleConstant(датыЗапрета, использоватьДатыЗапрета);
+
+            использоватьДатыЗапрета = new ИспользоватьДатыЗапретаИзменения {Значение = false};
+            dataContext.Save(использоватьДатыЗапрета);
+            датыЗапрета = dataContext.Select<ИспользоватьДатыЗапретаИзменения>().ToArray();
+            AssertSingleConstant(датыЗапрета, использоватьДатыЗапрета);
+
+            использоватьДатыЗапрета.Значение = true;
+            dataContext.Save(использоватьДатыЗапрета);
+            датыЗапрета = dataContext.Select<ИспользоватьДатыЗапретаИзменения>().ToArray();
+            AssertSingleConstant(датыЗапрета, использоватьДатыЗапрета);
+        }
+
+        [TestCase(int.MinValue, 0, int.MaxValue)]
+        [TestCase(long.MinValue, 0L, long.MaxValue)]
+        [TestCase(false, true, false)]
+        [TestCase(ДополнительнаяКолонкаПечатныхФормДокументов.Артикул, 
+            ДополнительнаяКолонкаПечатныхФормДокументов.Код,
+            ДополнительнаяКолонкаПечатныхФормДокументов.НеВыводить)]
+        public void CanSaveConstant_PrimitiveTypes<T>(T value1, T value2, T value3)
+        {
+            Assert.That(dataContext.Select<TestingConstant<T>>().ToArray(), Is.Empty);
+            var values = new T[] {value1, value2, value3};
+            foreach (var value in values)
+            {
+                var constant = new TestingConstant<T> {Значение = value};
+                dataContext.Save(constant);
+                var loadedConstants = dataContext.Select<TestingConstant<T>>().ToArray();
+                AssertSingleConstant(loadedConstants, constant);
+            }
+        }
+
+        [Test]
+        public void SavingConstant_ReferenceType()
+        {
+            Assert.That(dataContext.Select<TestingConstant<string>>().ToArray(), Is.Empty);
+
+            var constant = new TestingConstant<string> {Значение = null};
+            dataContext.Save(constant);
+            var loadedConstants = dataContext.Select<TestingConstant<string>>().ToArray();
+            AssertSingleConstant(loadedConstants, constant);
+
+            constant.Значение = "a";
+            var loadedConstant = dataContext.Select<TestingConstant<string>>().ToArray().Single();
+            Assert.That(loadedConstant.Значение, Is.EqualTo(null));
+
+            dataContext.Save(constant);
+            loadedConstant = dataContext.Select<TestingConstant<string>>().ToArray().Single();
+            Assert.That(loadedConstant.Значение, Is.EqualTo("a"));
+        }
+
+        private void AssertSingleConstant<T>(T[] array, T expected) where T : Constant
+        {
+            Assert.That(array.Length, Is.EqualTo(1));
+            var actual = array[0];
+            Assert.That(actual.ЗначениеНетипизированное?.GetType(),
+                Is.EqualTo(expected.ЗначениеНетипизированное?.GetType()));
+            Assert.That(actual.ЗначениеНетипизированное, Is.EqualTo(expected.ЗначениеНетипизированное));
         }
     }
 }
