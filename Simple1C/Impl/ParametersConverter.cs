@@ -34,18 +34,20 @@ namespace Simple1C.Impl
 
         private object ConvertParameterValue(object value)
         {
-            var convertEnum = value as ConvertEnumCmd;
-            if (convertEnum != null)
-                return comObjectMapper.MapEnumTo1C(convertEnum.valueIndex, convertEnum.enumType);
-            var convertUniqueIdentifier = value as ConvertUniqueIdentifierCmd;
-            if (convertUniqueIdentifier != null)
+            switch (value)
             {
-                var name = ConfigurationName.Get(convertUniqueIdentifier.entityType);
-                var itemManager = globalContext.GetManager(name);
-                var guidComObject = comObjectMapper.MapGuidTo1C(convertUniqueIdentifier.id);
-                return ComHelpers.Invoke(itemManager, "œÓÎÛ˜ËÚ¸—Ò˚ÎÍÛ", guidComObject);
+                case ConvertEnumCmd convertEnum:
+                    return comObjectMapper.MapEnumTo1C(convertEnum.valueIndex, convertEnum.enumType);
+                case ConvertUniqueIdentifierCmd convertUniqueIdentifier:
+                {
+                    var name = ConfigurationName.Get(convertUniqueIdentifier.entityType);
+                    var itemManager = globalContext.GetManager(name);
+                    var guidComObject = comObjectMapper.MapGuidTo1C(convertUniqueIdentifier.id);
+                    return ComHelpers.Invoke(itemManager, "–ü–æ–ª—É—á–∏—Ç—å–°—Å—ã–ª–∫—É", guidComObject);
+                }
+                default:
+                    throw new InvalidOperationException("assertion failure");
             }
-            throw new InvalidOperationException("assertion failure");
         }
     }
 }
