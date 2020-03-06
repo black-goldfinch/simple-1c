@@ -43,7 +43,7 @@ namespace Simple1C.Impl
                 var name = ConfigurationName.Get(convertUniqueIdentifier.entityType);
                 var itemManager = globalContext.GetManager(name);
                 var guidComObject = comObjectMapper.MapGuidTo1C(convertUniqueIdentifier.id);
-                return ComHelpers.Invoke(itemManager, "ПолучитьСсылку", guidComObject);
+                return ComHelpers.Invoke(itemManager, "РџРѕР»СѓС‡РёС‚СЊРЎСЃС‹Р»РєСѓ", guidComObject);
             }
             throw new InvalidOperationException("assertion failure");
         }
