@@ -180,8 +180,9 @@ namespace Simple1C.Impl
                         }
                     }
 
-                    inMemoryEntity.revision = new InMemoryEntityRevision(inMemoryEntity, inmemoryEntityRevision, changed);
-                    Collection(entity.GetType()).revision++;    
+                    inMemoryEntity.revision =
+                        new InMemoryEntityRevision(inMemoryEntity, inmemoryEntityRevision, changed);
+                    Collection(entity.GetType()).revision++;
                 }
             }
             else
@@ -304,7 +305,6 @@ namespace Simple1C.Impl
                 return false;
             }
 
-            //TODO add Constant logic??
             private static object Convert(Type type, object value)
             {
                 if (type == typeof(object))

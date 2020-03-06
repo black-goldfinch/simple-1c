@@ -437,13 +437,13 @@ namespace Simple1C.Tests
                 new Контрагенты {Наименование = "КА3"},
             };
 
-            dataContext.Save(collection[0], collection[1], collection[2]);
+            dataContext.Save(collection);
 
             var entities = dataContext.Select<Контрагенты>().ToArray();
             Assert.That(entities.Length, Is.EqualTo(3));
-            Assert.That(entities[0].Наименование, Is.EqualTo("КА1"));
-            Assert.That(entities[1].Наименование, Is.EqualTo("КА2"));
-            Assert.That(entities[2].Наименование, Is.EqualTo("КА3"));
+            Assert.That(entities[0].Наименование, Does.Contain("КА1")); 
+            Assert.That(entities[1].Наименование, Does.Contain("КА2"));
+            Assert.That(entities[2].Наименование, Does.Contain("КА3"));
         }
 
         [Test]
@@ -457,7 +457,7 @@ namespace Simple1C.Tests
                 версияДатЗапретаИзменения,
             };
 
-            dataContext.Save(collection[0], collection[1]);
+            dataContext.Save(collection);
 
             var использоватьДаты = dataContext.Select<ИспользоватьДатыЗапретаИзменения>().ToArray();
             AssertSingleConstant(использоватьДаты, использоватьДатыЗапретаИзменения);
