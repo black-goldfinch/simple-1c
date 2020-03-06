@@ -92,7 +92,6 @@ namespace Simple1C.Tests.TestEntities
             nomenclatureAccessObject.Наименование = nomenclatureItem.Name;
             nomenclatureAccessObject.НаименованиеПолное = nomenclatureItem.Name;
             nomenclatureAccessObject.Услуга = true;
-            nomenclatureAccessObject.СтавкаНДС = enumConverter.Convert(nomenclatureItem.NdsRate);
             nomenclatureAccessObject.Write();
             return nomenclatureAccessObject;
         }
