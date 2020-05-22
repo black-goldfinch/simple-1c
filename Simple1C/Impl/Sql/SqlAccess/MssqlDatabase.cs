@@ -37,6 +37,7 @@ namespace Simple1C.Impl.Sql.SqlAccess
                                 MaxLength = type == typeof(string) ? (int) r[SchemaTableColumn.ColumnSize] : -1
                             };
                         }
+
                         return result;
                     }
                 });
@@ -96,9 +97,9 @@ namespace Simple1C.Impl.Sql.SqlAccess
             var sortedColumns = fi.GetValue(sqlBulkCopy);
             var items =
                 (object[])
-                    sortedColumns.GetType()
-                        .GetField("_items", BindingFlags.NonPublic | BindingFlags.Instance)
-                        .GetValue(sortedColumns);
+                sortedColumns.GetType()
+                    .GetField("_items", BindingFlags.NonPublic | BindingFlags.Instance)
+                    .GetValue(sortedColumns);
 
             var itemdata = items[index].GetType().GetField("_metadata", BindingFlags.NonPublic | BindingFlags.Instance);
             var metadata = itemdata.GetValue(items[index]);
@@ -131,7 +132,11 @@ namespace Simple1C.Impl.Sql.SqlAccess
             if (type == typeof(bool))
                 return "bit";
             if (type == typeof(string))
-                return "varchar(" + (column.MaxLength > 0 ? column.MaxLength : 1000) + ")";
+            {
+                if (column.MaxLength > 0)
+                    return "varchar(" + column.MaxLength + ")";
+                return "text";
+            }
             if (type == typeof(DateTime))
                 return "datetime";
             if (type == typeof(decimal))
