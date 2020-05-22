@@ -83,7 +83,9 @@ namespace Simple1C.Impl.Sql.SqlAccess
 
         private static bool IsInvalidColumnLength(SqlException ex)
         {
-            return ex.Message.Contains("Received an invalid column length from the bcp client for colid");
+            return ex.Message.Contains("Received an invalid column length from the bcp client for colid")
+                   || ex.Message.Contains(
+                       "Получена недопустимая длина столбца от клиента bcp для идентификатора столбца");
         }
 
         private static void RethrowWithColumnName(SqlException ex, SqlBulkCopy sqlBulkCopy)
@@ -132,11 +134,7 @@ namespace Simple1C.Impl.Sql.SqlAccess
             if (type == typeof(bool))
                 return "bit";
             if (type == typeof(string))
-            {
-                if (column.MaxLength > 0)
-                    return "varchar(" + column.MaxLength + ")";
-                return "text";
-            }
+                return "varchar(" + (column.MaxLength > 0 ? column.MaxLength : 1000) + ")";
             if (type == typeof(DateTime))
                 return "datetime";
             if (type == typeof(decimal))
